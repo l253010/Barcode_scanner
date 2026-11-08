@@ -39,3 +39,13 @@ It is designed to demonstrate practical software engineering concepts while solv
 
 ## 🎯 Project Goal
 Deliver a reliable barcode scanner application while learning collaboration, implementation, and project delivery as a team.
+---
+
+## 🔄 CI/CD Pipeline
+This project uses **GitHub Actions** for continuous integration. The workflow in `.github/workflows/ci.yml` runs automatically on every push and pull request to `main`:
+
+- Runs on **Windows** (`windows-latest`)
+- Builds the project and checks for syntax errors
+- A pull request should only be merged when the check passes
+
+![CI](https://github.com/l253010/Barcode_scanner/actions/workflows/ci.yml/badge.svg)
