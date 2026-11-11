@@ -56,7 +56,7 @@ From `barcode/`:
 This project uses **GitHub Actions** for continuous integration. The workflow in `.github/workflows/ci.yml` runs automatically on every push and pull request to `main`:
 
 - Runs on **Windows** (`windows-latest`)
-- Builds the project and checks for syntax errors
+- Builds the project and builds the apps and runs the automated tests
 - A pull request should only be merged when the check passes
 
 ![CI](https://github.com/l253010/Barcode_scanner/actions/workflows/ci.yml/badge.svg)
