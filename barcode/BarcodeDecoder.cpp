@@ -77,7 +77,7 @@ char BarcodeDecoder::decodePattern(const char* pattern9) {
     if (pattern_equals(pattern9, "WNNWNNNNW")) return '1';
     if (pattern_equals(pattern9, "NNWWNNNNW")) return '2';
     if (pattern_equals(pattern9, "WNWWNNNNN")) return '3';
-    if (pattern_equals(pattern9, "NNNWWNNWN")) return '4';
+   if (pattern_equals(pattern9, "NNNWWNNNW")) return '4';
     if (pattern_equals(pattern9, "WNNWWNNNN")) return '5';
     if (pattern_equals(pattern9, "NNWWWNNNN")) return '6';
     if (pattern_equals(pattern9, "NNNWNNWNW")) return '7';
