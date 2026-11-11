@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
         "WNNWNNNNW", // 1
         "NNWWNNNNW", // 2
         "WNWWNNNNN", // 3
-        "NNNWWNNWN", // 4
+       "NNNWWNNNW", // 4
         "WNNWWNNNN", // 5
         "NNWWWNNNN", // 6
         "NWNNWNWNN"  // *
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
         "WNNWNNNNW", // 1
         "NNWWNNNNW", // 2
         "WNWWNNNNN", // 3
-        "NNNWWNNWN", // 4
+        "NNNWWNNNW", // 4
         "WNNWWNNNN", // 5
         "NWNNWNWNN"  // *
     };
@@ -250,7 +250,7 @@ int main(int argc, char* argv[]) {
         "WNNWNNNNW", // 1
         "NNWWNNNNW", // 2
         "WNWWNNNNN", // 3
-        "NNNWWNNWN", // 4
+       "NNNWWNNNW", // 4
         "WNNWWNNNN", // 5
         "NWNNWNWNN"  // *
     };
@@ -265,7 +265,7 @@ int main(int argc, char* argv[]) {
         "WNNWNNNNW", // 1
         "NNWWNNNNW", // 2
         "WWWWWWWWW", // Invalid pattern (not a Code 39 digit)
-        "NNNWWNNWN", // 4
+       "NNNWWNNNW", // 4
         "WNNWWNNNN", // 5
         "NNWWWNNNN", // 6
         "NWNNWNWNN"  // *

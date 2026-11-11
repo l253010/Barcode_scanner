@@ -133,7 +133,7 @@ void checkImageSave() {
     // ----- Write PBM (Portable Bit Map) — a plain text image format -----
     // PBM is part of the Netpbm family; it uses only the standard library.
     // Format: P1 <width> <height> <pixels (0=white,1=black)>
-    const std::string tmpPath = "/tmp/test_barcode_123456.pbm";
+   const std::string tmpPath = "test_barcode_123456.pbm";
     {
         std::ofstream out(tmpPath);
         if (!out.is_open()) {

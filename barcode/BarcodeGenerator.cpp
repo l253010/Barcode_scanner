@@ -39,7 +39,7 @@ std::string BarcodeGenerator::getPattern(char c) {
         case '1': return "WNNWNNNNW"; // 1  → wides at positions 0,3,8
         case '2': return "NNWWNNNNW"; // 2  → wides at positions 2,3,8
         case '3': return "WNWWNNNNN"; // 3  → wides at positions 0,2,3
-        case '4': return "NNNWWNNWN"; // 4  → wides at positions 3,4,7
+       case '4': return "NNNWWNNNW"; // 4  → wides at positions 3,4,8
         case '5': return "WNNWWNNNN"; // 5  → wides at positions 0,3,4
         case '6': return "NNWWWNNNN"; // 6  → wides at positions 2,3,4
         case '7': return "NNNWNNWNW"; // 7  → wides at positions 3,6,8
