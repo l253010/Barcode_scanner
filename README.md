@@ -39,6 +39,17 @@ It is designed to demonstrate practical software engineering concepts while solv
 
 ## 🎯 Project Goal
 Deliver a reliable barcode scanner application while learning collaboration, implementation, and project delivery as a team.
+
+## 🖥️ Windows Desktop Scanner (Issue #13)
+- The desktop scanner application is in `jannat_barcode/scanner_app.cpp`.
+- It opens the PC camera, shows a live preview, captures a frame, decodes the barcode, and shows the decoded **6-digit code**.
+- Camera access and scanning failures are shown through clear status messages in the app UI.
+
+### Run on Windows
+From `jannat_barcode/`:
+- `build.bat app` → build `BarcodeScannerApp.exe`
+- `build.bat run` → build and launch camera scanner app
+- `build.bat test` → run validation + decoder tests
 ---
 
 ## 🔄 CI/CD Pipeline

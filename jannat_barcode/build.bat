@@ -29,28 +29,52 @@ if "%TARGET%"=="" set "TARGET=all"
 
 if /i "%TARGET%"=="clean" (
     echo Cleaning build artifacts...
-    del /q /f BarcodeApp.exe test_validation.exe barcode_tests.exe *.obj *.ilk *.pdb 2>nul
+    del /q /f BarcodeApp.exe BarcodeScannerApp.exe test_validation.exe test_decoder.exe barcode_tests.exe *.obj *.ilk *.pdb 2>nul
     echo Done.
     exit /b 0
 )
 
 if /i "%TARGET%"=="test" (
-    echo Building test binary...
+    echo Building generator validation tests...
     cl /nologo /EHsc /std:c++17 /W4 test_validation.cpp BarcodeGenerator.cpp /Fe:test_validation.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
+    echo Building decoder tests...
+    cl /nologo /EHsc /std:c++17 /W4 test_decoder.cpp BarcodeDecoder.cpp BarcodeGenerator.cpp /Fe:test_decoder.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
     if %ERRORLEVEL% equ 0 (
-        echo Running tests...
+        echo Running generator validation tests...
         test_validation.exe
+        if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+        echo Running decoder tests...
+        test_decoder.exe
     )
     exit /b %ERRORLEVEL%
 )
 
 if /i "%TARGET%"=="app" (
+    echo Building BarcodeScannerApp.exe...
+    cl /nologo /EHsc /std:c++17 /W4 scanner_app.cpp BarcodeDecoder.cpp /Fe:BarcodeScannerApp.exe
+    exit /b %ERRORLEVEL%
+)
+
+if /i "%TARGET%"=="generator" (
     echo Building BarcodeApp.exe...
     cl /nologo /EHsc /std:c++17 /W4 main.cpp BarcodeGenerator.cpp /Fe:BarcodeApp.exe
     exit /b %ERRORLEVEL%
 )
 
 if /i "%TARGET%"=="run" (
+    echo Building and launching BarcodeScannerApp.exe...
+    cl /nologo /EHsc /std:c++17 /W4 scanner_app.cpp BarcodeDecoder.cpp /Fe:BarcodeScannerApp.exe
+    if %ERRORLEVEL% equ 0 (
+        start "" BarcodeScannerApp.exe
+    )
+    exit /b %ERRORLEVEL%
+)
+
+if /i "%TARGET%"=="run-generator" (
     echo Building and launching BarcodeApp.exe...
     cl /nologo /EHsc /std:c++17 /W4 main.cpp BarcodeGenerator.cpp /Fe:BarcodeApp.exe
     if %ERRORLEVEL% equ 0 (
@@ -60,6 +84,10 @@ if /i "%TARGET%"=="run" (
 )
 
 if /i "%TARGET%"=="all" (
+    echo Building BarcodeScannerApp.exe...
+    cl /nologo /EHsc /std:c++17 /W4 scanner_app.cpp BarcodeDecoder.cpp /Fe:BarcodeScannerApp.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
     echo Building BarcodeApp.exe...
     cl /nologo /EHsc /std:c++17 /W4 main.cpp BarcodeGenerator.cpp /Fe:BarcodeApp.exe
     if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
@@ -68,10 +96,14 @@ if /i "%TARGET%"=="all" (
     cl /nologo /EHsc /std:c++17 /W4 test_validation.cpp BarcodeGenerator.cpp /Fe:test_validation.exe
     if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
+    echo Building test_decoder.exe...
+    cl /nologo /EHsc /std:c++17 /W4 test_decoder.cpp BarcodeDecoder.cpp BarcodeGenerator.cpp /Fe:test_decoder.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
     echo Build successful.
     exit /b 0
 )
 
 echo Unknown target: %TARGET%
-echo Usage: build.bat [all ^| app ^| test ^| run ^| clean]
+echo Usage: build.bat [all ^| app ^| run ^| generator ^| run-generator ^| test ^| clean]
 exit /b 1
