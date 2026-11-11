@@ -69,3 +69,7 @@ Testing/
 
 # Visual Studio IDE
 .vs/
+  # generated test files
+   barcode/test_validation
+   *.pbm
+   *.png
