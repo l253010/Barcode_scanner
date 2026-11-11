@@ -13,28 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Show repository files
-        shell: pwsh
-        run: Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
+      - name: Build scanner, generator and tests
+        shell: cmd
+        working-directory: barcode
+        run: call build.bat all
 
-      - name: Build with CMake (if CMakeLists.txt exists)
-        if: ${{ hashFiles('**/CMakeLists.txt') != '' }}
-        shell: pwsh
-        run: |
-          cmake -S . -B build
-          cmake --build build --config Release
-
-      - name: Compile C++ files (if no CMake)
-        if: ${{ hashFiles('**/CMakeLists.txt') == '' && hashFiles('**/*.cpp') != '' }}
-        shell: pwsh
-        run: |
-          $files = Get-ChildItem -Recurse -Filter *.cpp | Where-Object { $_.FullName -notmatch '\\build\\|\\tests\\' }
-          g++ -std=c++17 -fsyntax-only $files.FullName
-
-      - name: Check Python syntax (if Python files exist)
-        if: ${{ hashFiles('**/*.py') != '' }}
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          python -m compileall .
+      - name: Run automated tests
+        shell: cmd
+        working-directory: barcode
+        run: call build.bat test
