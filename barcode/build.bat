@@ -29,7 +29,7 @@ if "%TARGET%"=="" set "TARGET=all"
 
 if /i "%TARGET%"=="clean" (
     echo Cleaning build artifacts...
-    del /q /f BarcodeApp.exe BarcodeScannerApp.exe test_validation.exe test_decoder.exe barcode_tests.exe *.obj *.ilk *.pdb 2>nul
+    del /q /f BarcodeApp.exe BarcodeScannerApp.exe test_validation.exe test_decoder.exe test_code39_standard.exe barcode_tests.exe *.obj *.ilk *.pdb 2>nul
     echo Done.
     exit /b 0
 )
@@ -43,13 +43,20 @@ if /i "%TARGET%"=="test" (
     cl /nologo /EHsc /std:c++17 /W4 test_decoder.cpp BarcodeDecoder.cpp BarcodeGenerator.cpp /Fe:test_decoder.exe
     if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
-    if %ERRORLEVEL% equ 0 (
-        echo Running generator validation tests...
-        test_validation.exe
-        if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
-        echo Running decoder tests...
-        test_decoder.exe
-    )
+    echo Building Code 39 standard tests...
+    cl /nologo /EHsc /std:c++17 /W4 test_code39_standard.cpp BarcodeDecoder.cpp BarcodeGenerator.cpp /Fe:test_code39_standard.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
+    echo Running generator validation tests...
+    test_validation.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
+    echo Running decoder tests...
+    test_decoder.exe
+    if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+
+    echo Running Code 39 standard tests...
+    test_code39_standard.exe
     exit /b %ERRORLEVEL%
 )
 
