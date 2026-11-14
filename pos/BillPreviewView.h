@@ -45,6 +45,11 @@ private:
     QLabel*       m_totalPayableLabel{nullptr};
 
     QPushButton*  m_proceedPaymentBtn{nullptr};
+    QPushButton*  m_saveOrderBtn{nullptr};
+
+    // Empty state container
+    QFrame*       m_emptyStateFrame{nullptr};
+    QFrame*       m_invoiceFrame{nullptr};
 
     void setupUi();
     void populateBillData();

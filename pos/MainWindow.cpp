@@ -9,7 +9,6 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFrame>
-#include <QDateTime>
 #include <QApplication>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -23,9 +22,7 @@ void MainWindow::setupUi() {
     resize(1200, 780);
     setMinimumSize(1000, 660);
 
-    // Global application stylesheet:
-    // Light neutral background (#F4F5F7), crisp white content (#FFFFFF),
-    // dark charcoal text (#1F2937), muted navy accent (#1E3A5F).
+    // Global application stylesheet
     setStyleSheet(
         "QMainWindow {"
         "  background-color: #F4F5F7;"
@@ -107,7 +104,7 @@ void MainWindow::setupUi() {
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
-    // Sidebar Container
+    // Sidebar Container (Clean, compact, no unnecessary terminal labels at bottom)
     auto* sidebarFrame = new QFrame(centralWidget);
     sidebarFrame->setFixedWidth(240);
     sidebarFrame->setStyleSheet(
@@ -117,7 +114,7 @@ void MainWindow::setupUi() {
         "}"
     );
     auto* sidebarLayout = new QVBoxLayout(sidebarFrame);
-    sidebarLayout->setContentsMargins(0, 0, 0, 16);
+    sidebarLayout->setContentsMargins(0, 0, 0, 20);
     sidebarLayout->setSpacing(4);
 
     // Brand Header in Sidebar
@@ -128,7 +125,7 @@ void MainWindow::setupUi() {
     brandLayout->setSpacing(4);
 
     auto* brandTitle = new QLabel("RETAIL POS", brandBox);
-    brandTitle->setStyleSheet("font-size: 17px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;");
+    brandTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;");
 
     auto* brandSub = new QLabel("Store Checkout Terminal", brandBox);
     brandSub->setStyleSheet("font-size: 12px; color: #93C5FD;");
@@ -137,7 +134,7 @@ void MainWindow::setupUi() {
     brandLayout->addWidget(brandSub);
     sidebarLayout->addWidget(brandBox);
 
-    sidebarLayout->addSpacing(12);
+    sidebarLayout->addSpacing(14);
 
     // Navigation Buttons
     struct NavItem {
@@ -162,7 +159,7 @@ void MainWindow::setupUi() {
         btn->setStyleSheet(
             "QPushButton {"
             "  text-align: left;"
-            "  padding: 12px 20px;"
+            "  padding: 13px 20px;"
             "  font-size: 13px;"
             "  font-weight: 600;"
             "  color: #374151;"
@@ -189,24 +186,8 @@ void MainWindow::setupUi() {
         m_navButtons.push_back(btn);
     }
 
+    // Stretch fills the rest of the sidebar cleanly — no unnecessary terminal info boxes
     sidebarLayout->addStretch();
-
-    // Bottom Sidebar Retail Store Info
-    auto* sysInfoBox = new QFrame(sidebarFrame);
-    sysInfoBox->setStyleSheet("border: none; padding: 12px 16px;");
-    auto* sysLayout = new QVBoxLayout(sysInfoBox);
-    sysLayout->setContentsMargins(12, 12, 12, 12);
-    sysLayout->setSpacing(3);
-
-    auto* termLbl = new QLabel("Terminal #01 (Online)", sysInfoBox);
-    termLbl->setStyleSheet("font-size: 12px; font-weight: bold; color: #166534;");
-
-    auto* storeLbl = new QLabel("Store: Central Branch", sysInfoBox);
-    storeLbl->setStyleSheet("font-size: 11px; color: #6B7280;");
-
-    sysLayout->addWidget(termLbl);
-    sysLayout->addWidget(storeLbl);
-    sidebarLayout->addWidget(sysInfoBox);
 
     rootLayout->addWidget(sidebarFrame);
 
@@ -243,8 +224,12 @@ void MainWindow::setupUi() {
     m_paymentView = new PaymentView(m_mockService.get(), this);
     connect(m_paymentView, &PaymentView::paymentCompleted, this, &MainWindow::onPaymentCompleted);
     connect(m_paymentView, &PaymentView::backToBillRequested, [this](const BillInfo& b) {
+        m_activeBill = b;
         m_billView->loadBill(b);
         navigateToScreen(3);
+    });
+    connect(m_paymentView, &PaymentView::navigateToCashierRequested, [this]() {
+        navigateToScreen(1);
     });
     m_stack->addWidget(m_paymentView);
 
@@ -257,8 +242,24 @@ void MainWindow::setupUi() {
     rootLayout->addWidget(m_stack, 1);
 }
 
+void MainWindow::syncActiveBill() {
+    // If no bill has been generated yet, but the cashier has items in the cart,
+    // automatically generate the active bill so Bill Preview and Payment always have live data
+    if (m_activeBill.items.empty() && m_cashierView && !m_cashierView->getCartItems().empty()) {
+        m_activeBill = m_mockService->generateBill("Walk-in Customer", "", m_cashierView->getCartItems());
+    }
+
+    if (!m_activeBill.items.empty()) {
+        m_billView->loadBill(m_activeBill);
+        m_paymentView->loadBill(m_activeBill);
+    }
+}
+
 void MainWindow::navigateToScreen(int index) {
     if (index >= 0 && index < m_stack->count()) {
+        if (index == 3 || index == 4) {
+            syncActiveBill();
+        }
         m_stack->setCurrentIndex(index);
         updateNavHighlights(index);
     }
@@ -271,7 +272,9 @@ void MainWindow::updateNavHighlights(int activeIndex) {
 }
 
 void MainWindow::onBillGenerated(const BillInfo& bill) {
+    m_activeBill = bill;
     m_billView->loadBill(bill);
+    m_paymentView->loadBill(bill);
     navigateToScreen(3); // Navigate to Bill Preview
 }
 
@@ -281,11 +284,13 @@ void MainWindow::onInspectProductRequested(const std::string& barcode) {
 }
 
 void MainWindow::onProceedToPaymentRequested(const BillInfo& bill) {
+    m_activeBill = bill;
     m_paymentView->loadBill(bill);
     navigateToScreen(4); // Navigate to Payment screen
 }
 
 void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
+    m_activeBill = updatedBill;
     m_billView->loadBill(updatedBill);
     m_cashierView->resetOrder(); // Clear cart for next customer
     navigateToScreen(3); // Return to Bill Preview showing PAID status

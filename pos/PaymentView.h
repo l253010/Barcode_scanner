@@ -16,10 +16,12 @@ class PaymentView : public QWidget {
 public:
     explicit PaymentView(IOrderStorageService* storageService, QWidget* parent = nullptr);
     void loadBill(const BillInfo& bill);
+    const BillInfo& getCurrentBill() const { return m_currentBill; }
 
 signals:
     void paymentCompleted(const BillInfo& updatedBill);
     void backToBillRequested(const BillInfo& currentBill);
+    void navigateToCashierRequested();
 
 private slots:
     void onPaymentModeChanged(int id);
@@ -30,6 +32,11 @@ private slots:
 private:
     IOrderStorageService* m_storageService;
     BillInfo              m_currentBill;
+
+    // Containers
+    QFrame*         m_emptyStateFrame{nullptr};
+    QFrame*         m_overviewFrame{nullptr};
+    QFrame*         m_modeFrame{nullptr};
 
     // Header & Summary
     QLabel*         m_billIdLabel{nullptr};
@@ -57,9 +64,13 @@ private:
     QLineEdit*      m_walletMerchantInput{nullptr};
     QLineEdit*      m_walletTxnIdInput{nullptr};
 
+    QPushButton*    m_confirmBtn{nullptr};
+    QLabel*         m_paidNoticeLabel{nullptr};
+
     void setupUi();
     QWidget* createCashPanel();
     QWidget* createCardPanel();
     QWidget* createWalletPanel();
     void updateChangeCalculation();
+    void updateUiState();
 };

@@ -7,6 +7,7 @@
 PaymentView::PaymentView(IOrderStorageService* storageService, QWidget* parent)
     : QWidget(parent), m_storageService(storageService) {
     setupUi();
+    updateUiState();
 }
 
 void PaymentView::setupUi() {
@@ -46,33 +47,74 @@ void PaymentView::setupUi() {
     topLayout->addWidget(cancelBtn);
     mainLayout->addLayout(topLayout);
 
-    // Order Overview Banner
-    auto* overviewFrame = new QFrame(this);
-    overviewFrame->setStyleSheet(
+    // Empty state card
+    m_emptyStateFrame = new QFrame(this);
+    m_emptyStateFrame->setStyleSheet(
         "QFrame {"
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 16px;"
+        "  padding: 40px;"
         "}"
     );
-    auto* overviewLayout = new QHBoxLayout(overviewFrame);
-    overviewLayout->setContentsMargins(16, 12, 16, 12);
+    auto* emptyLayout = new QVBoxLayout(m_emptyStateFrame);
+    emptyLayout->setSpacing(16);
+    emptyLayout->setAlignment(Qt::AlignCenter);
+
+    auto* emptyTitle = new QLabel("No Active Bill Ready for Payment", m_emptyStateFrame);
+    emptyTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: #1E3A5F;");
+    emptyTitle->setAlignment(Qt::AlignCenter);
+
+    auto* emptyDesc = new QLabel("There is no pending bill selected for payment.\nPlease generate a bill in Cashier / New Order before proceeding to checkout.", m_emptyStateFrame);
+    emptyDesc->setStyleSheet("font-size: 13px; color: #4B5563; line-height: 1.5;");
+    emptyDesc->setAlignment(Qt::AlignCenter);
+
+    auto* goToCashierBtn = new QPushButton("Open Cashier Terminal", m_emptyStateFrame);
+    goToCashierBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #1E3A5F;"
+        "  color: #FFFFFF;"
+        "  font-weight: bold;"
+        "  font-size: 13px;"
+        "  padding: 10px 24px;"
+        "  border-radius: 4px;"
+        "  border: none;"
+        "}"
+        "QPushButton:hover { background-color: #2B4C7E; }"
+    );
+    connect(goToCashierBtn, &QPushButton::clicked, this, &PaymentView::navigateToCashierRequested);
+
+    emptyLayout->addWidget(emptyTitle);
+    emptyLayout->addWidget(emptyDesc);
+    emptyLayout->addWidget(goToCashierBtn, 0, Qt::AlignCenter);
+    mainLayout->addWidget(m_emptyStateFrame);
+
+    // Order Overview Banner
+    m_overviewFrame = new QFrame(this);
+    m_overviewFrame->setStyleSheet(
+        "QFrame {"
+        "  background-color: #FFFFFF;"
+        "  border: 1px solid #D1D5DB;"
+        "  border-radius: 4px;"
+        "}"
+    );
+    auto* overviewLayout = new QHBoxLayout(m_overviewFrame);
+    overviewLayout->setContentsMargins(20, 14, 20, 14);
 
     auto* metaCol = new QVBoxLayout();
-    m_billIdLabel = new QLabel("Bill ID: -", overviewFrame);
-    m_billIdLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #1F2937;");
-    m_customerLabel = new QLabel("Customer: -", overviewFrame);
-    m_customerLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
+    m_billIdLabel = new QLabel("Bill ID: -", m_overviewFrame);
+    m_billIdLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #1F2937; background: transparent;");
+    m_customerLabel = new QLabel("Customer: -", m_overviewFrame);
+    m_customerLabel->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
     metaCol->addWidget(m_billIdLabel);
     metaCol->addWidget(m_customerLabel);
 
     auto* amountCol = new QVBoxLayout();
-    auto* amtTitle = new QLabel("TOTAL AMOUNT DUE:", overviewFrame);
-    amtTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4B5563;");
+    auto* amtTitle = new QLabel("TOTAL AMOUNT DUE:", m_overviewFrame);
+    amtTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4B5563; background: transparent;");
     amtTitle->setAlignment(Qt::AlignRight);
-    m_amountDueLabel = new QLabel("Rs. 0.00", overviewFrame);
-    m_amountDueLabel->setStyleSheet("font-size: 26px; font-weight: bold; color: #1E3A5F;");
+    m_amountDueLabel = new QLabel("Rs. 0.00", m_overviewFrame);
+    m_amountDueLabel->setStyleSheet("font-size: 26px; font-weight: bold; color: #1E3A5F; background: transparent;");
     m_amountDueLabel->setAlignment(Qt::AlignRight);
     amountCol->addWidget(amtTitle);
     amountCol->addWidget(m_amountDueLabel);
@@ -80,24 +122,23 @@ void PaymentView::setupUi() {
     overviewLayout->addLayout(metaCol);
     overviewLayout->addStretch();
     overviewLayout->addLayout(amountCol);
-    mainLayout->addWidget(overviewFrame);
+    mainLayout->addWidget(m_overviewFrame);
 
     // Payment Mode Selection Card
-    auto* modeFrame = new QFrame(this);
-    modeFrame->setStyleSheet(
+    m_modeFrame = new QFrame(this);
+    m_modeFrame->setStyleSheet(
         "QFrame {"
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 18px;"
         "}"
     );
-    auto* modeLayout = new QVBoxLayout(modeFrame);
-    modeLayout->setContentsMargins(18, 16, 18, 16);
+    auto* modeLayout = new QVBoxLayout(m_modeFrame);
+    modeLayout->setContentsMargins(20, 16, 20, 16);
     modeLayout->setSpacing(14);
 
-    auto* modeTitle = new QLabel("Select Payment Mode:", modeFrame);
-    modeTitle->setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F;");
+    auto* modeTitle = new QLabel("Select Payment Mode:", m_modeFrame);
+    modeTitle->setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F; background: transparent;");
     modeLayout->addWidget(modeTitle);
 
     auto* radioLayout = new QHBoxLayout();
@@ -105,17 +146,17 @@ void PaymentView::setupUi() {
 
     m_modeGroup = new QButtonGroup(this);
 
-    m_cashRadio = new QRadioButton("Cash Payment", modeFrame);
-    m_cashRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px;");
+    m_cashRadio = new QRadioButton("Cash Payment", m_modeFrame);
+    m_cashRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px; background: transparent;");
     m_cashRadio->setChecked(true);
     m_modeGroup->addButton(m_cashRadio, 0);
 
-    m_cardRadio = new QRadioButton("Card (Debit / Credit)", modeFrame);
-    m_cardRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px;");
+    m_cardRadio = new QRadioButton("Card (Debit / Credit)", m_modeFrame);
+    m_cardRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px; background: transparent;");
     m_modeGroup->addButton(m_cardRadio, 1);
 
-    m_walletRadio = new QRadioButton("Digital Wallet", modeFrame);
-    m_walletRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px;");
+    m_walletRadio = new QRadioButton("Digital Wallet", m_modeFrame);
+    m_walletRadio->setStyleSheet("font-size: 14px; font-weight: 600; color: #1F2937; padding: 6px 12px; background: transparent;");
     m_modeGroup->addButton(m_walletRadio, 2);
 
     radioLayout->addWidget(m_cashRadio);
@@ -127,17 +168,23 @@ void PaymentView::setupUi() {
     connect(m_modeGroup, &QButtonGroup::idClicked, this, &PaymentView::onPaymentModeChanged);
 
     // Dynamic Stacked Panels
-    m_detailsStack = new QStackedWidget(modeFrame);
+    m_detailsStack = new QStackedWidget(m_modeFrame);
     m_detailsStack->addWidget(createCashPanel());
     m_detailsStack->addWidget(createCardPanel());
     m_detailsStack->addWidget(createWalletPanel());
     modeLayout->addWidget(m_detailsStack);
 
-    mainLayout->addWidget(modeFrame);
+    mainLayout->addWidget(m_modeFrame);
+
+    // Paid Notice
+    m_paidNoticeLabel = new QLabel("This transaction has already been settled and marked as PAID.", this);
+    m_paidNoticeLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #166534; padding: 8px 16px; background-color: #DCFCE7; border: 1px solid #86EFAC; border-radius: 4px;");
+    m_paidNoticeLabel->setVisible(false);
+    mainLayout->addWidget(m_paidNoticeLabel);
 
     // Confirm Payment Button
-    auto* confirmBtn = new QPushButton("Confirm Payment & Finalize Transaction", this);
-    confirmBtn->setStyleSheet(
+    m_confirmBtn = new QPushButton("Confirm Payment & Finalize Transaction", this);
+    m_confirmBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #166534;"
         "  color: #FFFFFF;"
@@ -149,18 +196,19 @@ void PaymentView::setupUi() {
         "}"
         "QPushButton:hover { background-color: #15803D; }"
         "QPushButton:pressed { background-color: #14532D; }"
+        "QPushButton:disabled { background-color: #9CA3AF; color: #E5E7EB; }"
     );
-    connect(confirmBtn, &QPushButton::clicked, this, &PaymentView::onConfirmPaymentClicked);
-    mainLayout->addWidget(confirmBtn, 0, Qt::AlignRight);
+    connect(m_confirmBtn, &QPushButton::clicked, this, &PaymentView::onConfirmPaymentClicked);
+    mainLayout->addWidget(m_confirmBtn, 0, Qt::AlignRight);
 
     mainLayout->addStretch();
 }
 
 QWidget* PaymentView::createCashPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px; padding: 14px;");
+    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;");
     auto* layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setContentsMargins(16, 14, 16, 14);
     layout->setSpacing(12);
 
     auto* grid = new QGridLayout();
@@ -168,7 +216,7 @@ QWidget* PaymentView::createCashPanel() {
     grid->setVerticalSpacing(10);
 
     auto* tendLabel = new QLabel("Amount Tendered (Rs.):", panel);
-    tendLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    tendLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_tenderedInput = new QLineEdit(panel);
     m_tenderedInput->setPlaceholderText("0.00");
     m_tenderedInput->setStyleSheet(
@@ -183,9 +231,9 @@ QWidget* PaymentView::createCashPanel() {
     connect(m_tenderedInput, &QLineEdit::textChanged, this, &PaymentView::onTenderedAmountChanged);
 
     auto* changeLabel = new QLabel("Change Due (Rs.):", panel);
-    changeLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    changeLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_changeDueLabel = new QLabel("Rs. 0.00", panel);
-    m_changeDueLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #166534;");
+    m_changeDueLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #166534; background: transparent;");
 
     grid->addWidget(tendLabel, 0, 0);
     grid->addWidget(m_tenderedInput, 0, 1);
@@ -197,7 +245,7 @@ QWidget* PaymentView::createCashPanel() {
     auto* quickLayout = new QHBoxLayout();
     quickLayout->setSpacing(8);
     auto* qLabel = new QLabel("Quick Tender:", panel);
-    qLabel->setStyleSheet("color: #4B5563; font-size: 12px; font-weight: 600;");
+    qLabel->setStyleSheet("color: #4B5563; font-size: 12px; font-weight: 600; background: transparent;");
     quickLayout->addWidget(qLabel);
 
     for (double amt : {500.0, 1000.0, 2000.0, 5000.0}) {
@@ -243,14 +291,14 @@ QWidget* PaymentView::createCashPanel() {
 
 QWidget* PaymentView::createCardPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px; padding: 14px;");
+    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;");
     auto* grid = new QGridLayout(panel);
-    grid->setContentsMargins(14, 14, 14, 14);
+    grid->setContentsMargins(16, 14, 16, 14);
     grid->setHorizontalSpacing(16);
     grid->setVerticalSpacing(10);
 
     auto* mLabel = new QLabel("Merchant Terminal Name:", panel);
-    mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_cardMerchantInput = new QLineEdit("Visa / Mastercard POS Terminal #01", panel);
     m_cardMerchantInput->setStyleSheet(
         "background-color: #FFFFFF !important;"
@@ -261,7 +309,7 @@ QWidget* PaymentView::createCardPanel() {
     );
 
     auto* aLabel = new QLabel("Card Auth / Approval Code:", panel);
-    aLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    aLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_cardAuthCodeInput = new QLineEdit("AUTH-892401", panel);
     m_cardAuthCodeInput->setStyleSheet(
         "background-color: #FFFFFF !important;"
@@ -281,14 +329,14 @@ QWidget* PaymentView::createCardPanel() {
 
 QWidget* PaymentView::createWalletPanel() {
     auto* panel = new QFrame();
-    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px; padding: 14px;");
+    panel->setStyleSheet("background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 4px;");
     auto* grid = new QGridLayout(panel);
-    grid->setContentsMargins(14, 14, 14, 14);
+    grid->setContentsMargins(16, 14, 16, 14);
     grid->setHorizontalSpacing(16);
     grid->setVerticalSpacing(10);
 
     auto* mLabel = new QLabel("Wallet Provider / Merchant:", panel);
-    mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_walletMerchantInput = new QLineEdit("JazzCash / EasyPaisa / Raast Terminal", panel);
     m_walletMerchantInput->setStyleSheet(
         "background-color: #FFFFFF !important;"
@@ -299,7 +347,7 @@ QWidget* PaymentView::createWalletPanel() {
     );
 
     auto* tLabel = new QLabel("Transaction Reference ID:", panel);
-    tLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
+    tLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px; background: transparent;");
     m_walletTxnIdInput = new QLineEdit("WAL-TXN-559102", panel);
     m_walletTxnIdInput->setStyleSheet(
         "background-color: #FFFFFF !important;"
@@ -319,14 +367,44 @@ QWidget* PaymentView::createWalletPanel() {
 
 void PaymentView::loadBill(const BillInfo& bill) {
     m_currentBill = bill;
-    m_billIdLabel->setText(QString("Bill ID: <b>%1</b> (Order: %2)")
-                           .arg(QString::fromStdString(bill.billId))
-                           .arg(QString::fromStdString(bill.orderId)));
-    m_customerLabel->setText(QString("Customer: <b>%1</b>").arg(QString::fromStdString(bill.customerName)));
-    m_amountDueLabel->setText(QString("Rs. %1").arg(bill.totalPayable, 0, 'f', 2));
+    updateUiState();
+}
 
-    m_tenderedInput->setText(QString("%1").arg(bill.totalPayable, 0, 'f', 2));
+void PaymentView::updateUiState() {
+    bool hasItems = !m_currentBill.items.empty();
+    bool isPaid = (m_currentBill.paymentStatus == "Paid");
+
+    m_emptyStateFrame->setVisible(!hasItems);
+    m_overviewFrame->setVisible(hasItems);
+    m_modeFrame->setVisible(hasItems);
+    m_paidNoticeLabel->setVisible(hasItems && isPaid);
+
+    if (!hasItems) {
+        m_confirmBtn->setEnabled(false);
+        m_confirmBtn->setText("No Active Bill");
+        return;
+    }
+
+    m_billIdLabel->setText(QString("Bill ID: <b>%1</b> (Order ID: %2)")
+                           .arg(QString::fromStdString(m_currentBill.billId))
+                           .arg(QString::fromStdString(m_currentBill.orderId)));
+    m_customerLabel->setText(QString("Customer: <b>%1</b> | Contact: %2")
+                             .arg(QString::fromStdString(m_currentBill.customerName))
+                             .arg(m_currentBill.customerContact.empty() ? "None" : QString::fromStdString(m_currentBill.customerContact)));
+    m_amountDueLabel->setText(QString("Rs. %1").arg(m_currentBill.totalPayable, 0, 'f', 2));
+
+    m_tenderedInput->setText(QString("%1").arg(m_currentBill.totalPayable, 0, 'f', 2));
     updateChangeCalculation();
+
+    if (isPaid) {
+        m_confirmBtn->setEnabled(false);
+        m_confirmBtn->setText("Payment Completed (PAID)");
+        m_modeFrame->setEnabled(false);
+    } else {
+        m_confirmBtn->setEnabled(true);
+        m_confirmBtn->setText("Confirm Payment & Finalize Transaction");
+        m_modeFrame->setEnabled(true);
+    }
 }
 
 void PaymentView::onPaymentModeChanged(int id) {
@@ -359,6 +437,17 @@ void PaymentView::updateChangeCalculation() {
 }
 
 void PaymentView::onConfirmPaymentClicked() {
+    // Prevent duplicate payment confirmation
+    if (m_currentBill.paymentStatus == "Paid") {
+        QMessageBox::information(this, "Already Paid", "This bill has already been paid and recorded.");
+        return;
+    }
+
+    if (m_currentBill.items.empty()) {
+        QMessageBox::warning(this, "No Items", "Cannot process payment for an empty bill.");
+        return;
+    }
+
     int modeId = m_modeGroup->checkedId();
 
     if (modeId == 0) { // Cash
@@ -392,6 +481,8 @@ void PaymentView::onConfirmPaymentClicked() {
     if (m_storageService) {
         m_storageService->saveBill(m_currentBill);
     }
+
+    updateUiState();
 
     QMessageBox::information(
         this,

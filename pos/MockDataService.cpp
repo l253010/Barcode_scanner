@@ -9,16 +9,16 @@ MockDataService::MockDataService() {
 }
 
 void MockDataService::initSampleCatalog() {
-    // Realistic retail store catalog with PKR pricing (Rs.)
+    // Realistic retail supermarket catalog with PKR pricing (Rs.) and categories
     m_catalog = {
-        {101, "100001", "MILK-1L", "Fresh Whole Milk 1L",          "Bottle",  250.00, 0.05, 20.00, 45},
-        {102, "100002", "BREAD-W", "Whole Wheat Bread 500g",        "Loaf",    120.00, 0.05, 15.00, 30},
-        {103, "100003", "EGGS-12", "Fresh Farm Brown Eggs (12-pk)", "Pack",    380.00, 0.05, 30.00, 60},
-        {104, "100004", "RICE-5K", "Premium Basmati Rice 5kg",      "Bag",    1850.00, 0.05, 150.00, 25},
-        {105, "100005", "OIL-1L",  "Pure Cooking Oil 1L",           "Bottle",  540.00, 0.05, 40.00, 40},
-        {106, "100006", "TEA-500", "Premium Black Tea 500g",        "Box",     480.00, 0.05, 35.00, 35},
-        {107, "100007", "SUGAR-2", "Refined White Sugar 2kg",       "Bag",     320.00, 0.05, 25.00, 50},
-        {108, "100008", "COF-250", "Classic Roast Coffee 200g",     "Jar",     950.00, 0.08, 75.00, 20}
+        {101, "100001", "MILK-1L", "Fresh Whole Milk 1L",          "Dairy & Milk",     "Bottle",  250.00, 0.05, 20.00, 45},
+        {102, "100002", "BREAD-W", "Whole Wheat Bread 500g",        "Bakery & Bread",   "Loaf",    120.00, 0.05, 15.00, 30},
+        {103, "100003", "EGGS-12", "Fresh Farm Brown Eggs (12-pk)", "Poultry & Eggs",   "Pack",    380.00, 0.05, 30.00, 60},
+        {104, "100004", "RICE-5K", "Premium Basmati Rice 5kg",      "Grains & Rice",    "Bag",    1850.00, 0.05, 150.00, 25},
+        {105, "100005", "OIL-1L",  "Pure Cooking Oil 1L",           "Oils & Ghee",      "Bottle",  540.00, 0.05, 40.00, 40},
+        {106, "100006", "TEA-500", "Premium Black Tea 500g",        "Beverages & Tea",  "Box",     480.00, 0.05, 35.00, 35},
+        {107, "100007", "SUGAR-2", "Refined White Sugar 2kg",       "Grocery Staples",  "Bag",     320.00, 0.05, 25.00, 50},
+        {108, "100008", "COF-250", "Classic Roast Coffee 200g",     "Beverages & Coffee", "Jar",   950.00, 0.08, 75.00, 20}
     };
 }
 
@@ -59,7 +59,7 @@ BillInfo MockDataService::generateBill(const std::string& customerName,
     bill.orderId = orderStream.str();
 
     bill.customerName = customerName.empty() ? "Walk-in Customer" : customerName;
-    bill.customerContact = customerContact;
+    bill.customerContact = customerContact.empty() ? "N/A" : customerContact;
 
     // Portable timestamp using std::chrono
     auto now = std::chrono::system_clock::now();
@@ -94,7 +94,7 @@ BillInfo MockDataService::generateBill(const std::string& customerName,
 
     bill.paymentStatus = "Pending";
     bill.paymentMode = "Cash";
-    bill.paymentMerchant = "Main Cash Register #01";
+    bill.paymentMerchant = "Cash Register Drawer #01";
 
     return bill;
 }
@@ -123,7 +123,6 @@ BarcodeScanResult MockDataService::captureAndScan() {
         result.errorMessage = "Scanner module is currently inactive. Please start scanner first.";
         return result;
     }
-    // Simulate detecting a sample product barcode
     result.success = true;
     result.barcode = "100001";
     return result;

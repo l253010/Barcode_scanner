@@ -34,9 +34,10 @@ public slots:
 
 private:
     std::unique_ptr<MockDataService> m_mockService;
+    BillInfo                         m_activeBill;
 
     // UI Structure
-    QStackedWidget*          m_stack{nullptr};
+    QStackedWidget*           m_stack{nullptr};
     std::vector<QPushButton*> m_navButtons;
 
     // Screens
@@ -48,6 +49,6 @@ private:
     ManagerView*            m_managerView{nullptr};
 
     void setupUi();
-    void setupNavigationSidebar();
+    void syncActiveBill();
     void updateNavHighlights(int activeIndex);
 };

@@ -19,7 +19,7 @@ void ManagerView::setupUi() {
     // Header
     auto* topLayout = new QHBoxLayout();
     auto* titleCol = new QVBoxLayout();
-    auto* titleLabel = new QLabel("Manager Terminal — Inventory & Pricing Catalog", this);
+    auto* titleLabel = new QLabel("Manager Terminal — Store Inventory & Catalog", this);
     titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
     auto* subtitleLabel = new QLabel("View store inventory stock levels, product catalog, and pricing records", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
@@ -54,7 +54,7 @@ void ManagerView::setupUi() {
     searchTitle->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
 
     m_searchInput = new QLineEdit(this);
-    m_searchInput->setPlaceholderText("Filter by barcode, acronym, or product name...");
+    m_searchInput->setPlaceholderText("Filter by barcode, name, category, or acronym...");
     m_searchInput->setStyleSheet(
         "background-color: #FFFFFF !important;"
         "color: #111827 !important;"
@@ -72,7 +72,7 @@ void ManagerView::setupUi() {
         "  color: #FFFFFF;"
         "  font-weight: 600;"
         "  font-size: 13px;"
-        "  padding: 7px 16px;"
+        "  padding: 7px 18px;"
         "  border-radius: 4px;"
         "  border: none;"
         "}"
@@ -87,8 +87,8 @@ void ManagerView::setupUi() {
 
     // Catalog Table
     m_catalogTable = new QTableWidget(this);
-    m_catalogTable->setColumnCount(9);
-    QStringList headers = {"ID", "Barcode", "Acronym", "Product Name", "Unit", "Unit Price (Rs.)", "Tax Rate", "Discount (Rs.)", "Available Stock"};
+    m_catalogTable->setColumnCount(10);
+    QStringList headers = {"ID", "Barcode", "Acronym", "Product Name", "Category", "Unit", "Unit Price (Rs.)", "Tax", "Discount (Rs.)", "Stock"};
     m_catalogTable->setHorizontalHeaderLabels(headers);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -99,6 +99,7 @@ void ManagerView::setupUi() {
     m_catalogTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(7, QHeaderView::ResizeToContents);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(8, QHeaderView::ResizeToContents);
+    m_catalogTable->horizontalHeader()->setSectionResizeMode(9, QHeaderView::ResizeToContents);
     m_catalogTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_catalogTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_catalogTable->setAlternatingRowColors(true);
@@ -154,6 +155,8 @@ void ManagerView::populateTable(const std::vector<ProductInfo>& products) {
 
         auto* nameItem = new QTableWidgetItem(QString::fromStdString(p.name));
 
+        auto* catItem = new QTableWidgetItem(p.category.empty() ? "General" : QString::fromStdString(p.category));
+
         auto* unitItem = new QTableWidgetItem(QString::fromStdString(p.unit));
         unitItem->setTextAlignment(Qt::AlignCenter);
 
@@ -175,11 +178,12 @@ void ManagerView::populateTable(const std::vector<ProductInfo>& products) {
         m_catalogTable->setItem(i, 1, barItem);
         m_catalogTable->setItem(i, 2, acrItem);
         m_catalogTable->setItem(i, 3, nameItem);
-        m_catalogTable->setItem(i, 4, unitItem);
-        m_catalogTable->setItem(i, 5, priceItem);
-        m_catalogTable->setItem(i, 6, taxItem);
-        m_catalogTable->setItem(i, 7, discItem);
-        m_catalogTable->setItem(i, 8, stockItem);
+        m_catalogTable->setItem(i, 4, catItem);
+        m_catalogTable->setItem(i, 5, unitItem);
+        m_catalogTable->setItem(i, 6, priceItem);
+        m_catalogTable->setItem(i, 7, taxItem);
+        m_catalogTable->setItem(i, 8, discItem);
+        m_catalogTable->setItem(i, 9, stockItem);
     }
 
     m_summaryLabel->setText(QString("Total catalog entries displayed: %1 (Double-click any row to view description)").arg(products.size()));
@@ -199,12 +203,15 @@ void ManagerView::onSearchTextChanged(const QString& text) {
         std::string bar = prod.barcode;
         std::string acr = prod.acronym;
         std::string name = prod.name;
+        std::string cat = prod.category;
         std::transform(acr.begin(), acr.end(), acr.begin(), ::tolower);
         std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+        std::transform(cat.begin(), cat.end(), cat.begin(), ::tolower);
 
         if (bar.find(query) != std::string::npos ||
             acr.find(query) != std::string::npos ||
-            name.find(query) != std::string::npos) {
+            name.find(query) != std::string::npos ||
+            cat.find(query) != std::string::npos) {
             filtered.push_back(prod);
         }
     }

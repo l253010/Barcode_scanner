@@ -77,7 +77,6 @@ void BarcodeDisplayWidget::paintEvent(QPaintEvent* /*event*/) {
         currentX += w;
     }
 
-    // Barcode number text
     painter.setPen(QColor("#1F2937"));
     QFont font("Arial", 12, QFont::Bold);
     font.setLetterSpacing(QFont::AbsoluteSpacing, 3);
@@ -142,11 +141,10 @@ void ProductDescriptionView::setupUi() {
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 12px 16px;"
         "}"
     );
     auto* lookupLayout = new QVBoxLayout(lookupCard);
-    lookupLayout->setContentsMargins(14, 14, 14, 14);
+    lookupLayout->setContentsMargins(16, 14, 16, 14);
     lookupLayout->setSpacing(10);
 
     auto* lookupRow = new QHBoxLayout();
@@ -203,8 +201,8 @@ void ProductDescriptionView::setupUi() {
     lookupRow->addWidget(m_productCombo, 3);
     lookupLayout->addLayout(lookupRow);
 
-    m_lookupStatusLabel = new QLabel("Enter or select a product above to inspect complete specifications.", lookupCard);
-    m_lookupStatusLabel->setStyleSheet("font-size: 12px; color: #6B7280;");
+    m_lookupStatusLabel = new QLabel("Select a product from the list or enter a barcode above.", lookupCard);
+    m_lookupStatusLabel->setStyleSheet("font-size: 12px; color: #4B5563;");
     lookupLayout->addWidget(m_lookupStatusLabel);
 
     mainLayout->addWidget(lookupCard);
@@ -216,45 +214,48 @@ void ProductDescriptionView::setupUi() {
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 22px;"
         "}"
     );
     auto* detailLayout = new QVBoxLayout(detailCard);
-    detailLayout->setContentsMargins(22, 20, 22, 20);
+    detailLayout->setContentsMargins(24, 20, 24, 20);
     detailLayout->setSpacing(16);
 
     auto* grid = new QGridLayout();
     grid->setHorizontalSpacing(24);
-    grid->setVerticalSpacing(14);
+    grid->setVerticalSpacing(12);
     grid->setColumnStretch(1, 1);
     grid->setColumnStretch(3, 1);
 
-    auto makeField = [this, grid](const QString& title, QLabel*& valLabel, int row, int col) {
-        auto* tLabel = new QLabel(title, this);
-        tLabel->setMinimumWidth(160);
-        tLabel->setStyleSheet("font-weight: 600; color: #4B5563; font-size: 13px;");
-        valLabel = new QLabel("-", this);
-        valLabel->setStyleSheet("font-size: 14px; color: #1F2937; font-weight: 500;");
+    // Create labels with detailCard as their direct parent to prevent any z-order or clipping issues
+    auto makeField = [detailCard, grid](const QString& title, QLabel*& valLabel, int row, int col) {
+        auto* tLabel = new QLabel(title, detailCard);
+        tLabel->setMinimumWidth(150);
+        tLabel->setStyleSheet("font-weight: 600; color: #4B5563; font-size: 13px; background: transparent;");
+        
+        valLabel = new QLabel("-", detailCard);
+        valLabel->setStyleSheet("font-size: 14px; color: #111827; font-weight: 600; background: transparent;");
         valLabel->setWordWrap(true);
+        
         grid->addWidget(tLabel, row, col * 2);
         grid->addWidget(valLabel, row, col * 2 + 1);
     };
 
-    makeField("Product ID:",           m_idLabel,       0, 0);
-    makeField("Product Barcode:",      m_barcodeLabel,  0, 1);
-    makeField("Product Acronym:",      m_acronymLabel,  1, 0);
-    makeField("Product Name:",         m_nameLabel,     1, 1);
-    makeField("Measurement Unit:",     m_unitLabel,     2, 0);
-    makeField("Unit Price (Rs.):",     m_priceLabel,    2, 1);
-    makeField("Tax Rate (%):",         m_taxLabel,      3, 0);
-    makeField("Discount / Unit (Rs.):", m_discountLabel, 3, 1);
-    makeField("Available Stock:",      m_stockLabel,    4, 0);
+    makeField("Product Name:",          m_nameLabel,      0, 0);
+    makeField("Product Barcode:",       m_barcodeLabel,   0, 1);
+    makeField("Product Acronym:",       m_acronymLabel,   1, 0);
+    makeField("Category:",              m_categoryLabel,  1, 1);
+    makeField("Product ID:",            m_idLabel,        2, 0);
+    makeField("Measurement Unit:",      m_unitLabel,      2, 1);
+    makeField("Unit Price (Rs.):",      m_priceLabel,     3, 0);
+    makeField("Discount / Unit (Rs.):", m_discountLabel,  3, 1);
+    makeField("Tax Rate (%):",          m_taxLabel,       4, 0);
+    makeField("Available Stock:",       m_stockLabel,     4, 1);
 
     detailLayout->addLayout(grid);
 
     // Barcode Verification Section
     auto* barcodeSectionTitle = new QLabel("Product Barcode Verification:", detailCard);
-    barcodeSectionTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px; margin-top: 8px;");
+    barcodeSectionTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px; margin-top: 8px; background: transparent;");
     detailLayout->addWidget(barcodeSectionTitle);
 
     m_barcodeWidget = new BarcodeDisplayWidget(detailCard);
@@ -268,7 +269,7 @@ void ProductDescriptionView::setupUi() {
         "  color: #FFFFFF;"
         "  font-weight: bold;"
         "  font-size: 13px;"
-        "  padding: 10px 20px;"
+        "  padding: 10px 22px;"
         "  border-radius: 4px;"
         "  border: none;"
         "}"
@@ -326,7 +327,7 @@ void ProductDescriptionView::displayProduct(const std::string& barcode) {
     if (m_productService->findProductByBarcode(barcode, prod)) {
         m_currentProduct = prod;
         updateFields(prod);
-        m_lookupStatusLabel->setText(QString("<font color='#166534'>Found product: <b>%1</b></font>")
+        m_lookupStatusLabel->setText(QString("<font color='#166534'>Displaying product specifications for <b>%1</b></font>")
                                      .arg(QString::fromStdString(prod.name)));
     } else {
         m_lookupStatusLabel->setText(QString("<font color='#DC2626'>Barcode '%1' not found in store database.</font>")
@@ -335,15 +336,16 @@ void ProductDescriptionView::displayProduct(const std::string& barcode) {
 }
 
 void ProductDescriptionView::updateFields(const ProductInfo& prod) {
-    m_idLabel->setText(QString::number(prod.id));
-    m_barcodeLabel->setText(QString("<b>%1</b>").arg(QString::fromStdString(prod.barcode)));
+    m_nameLabel->setText(QString::fromStdString(prod.name));
+    m_barcodeLabel->setText(QString::fromStdString(prod.barcode));
     m_acronymLabel->setText(QString::fromStdString(prod.acronym));
-    m_nameLabel->setText(QString("<b>%1</b>").arg(QString::fromStdString(prod.name)));
+    m_categoryLabel->setText(prod.category.empty() ? "General Retail" : QString::fromStdString(prod.category));
+    m_idLabel->setText(QString::number(prod.id));
     m_unitLabel->setText(QString::fromStdString(prod.unit));
     m_priceLabel->setText(QString("Rs. %1").arg(prod.unitPrice, 0, 'f', 2));
-    m_taxLabel->setText(QString("%1%").arg(prod.taxRate * 100.0, 0, 'f', 1));
     m_discountLabel->setText(QString("Rs. %1").arg(prod.discountPerUnit, 0, 'f', 2));
-    m_stockLabel->setText(QString("<b>%1</b> %2(s) in stock")
+    m_taxLabel->setText(QString("%1%").arg(prod.taxRate * 100.0, 0, 'f', 1));
+    m_stockLabel->setText(QString("%1 %2(s) available in store")
                           .arg(prod.availableQuantity)
                           .arg(QString::fromStdString(prod.unit)));
 

@@ -12,7 +12,7 @@
 // ----------------------------------------------------------------------------
 // BarcodeDisplayWidget
 // Custom cross-platform widget that draws Code 39 bars using Qt's QPainter
-// and Increment 1's pure C++ BarcodeGenerator::encode logic!
+// and pure C++ BarcodeGenerator::encode logic.
 // ----------------------------------------------------------------------------
 class BarcodeDisplayWidget : public QWidget {
     Q_OBJECT
@@ -65,6 +65,7 @@ private:
     QLabel*               m_barcodeLabel{nullptr};
     QLabel*               m_acronymLabel{nullptr};
     QLabel*               m_nameLabel{nullptr};
+    QLabel*               m_categoryLabel{nullptr};
     QLabel*               m_unitLabel{nullptr};
     QLabel*               m_priceLabel{nullptr};
     QLabel*               m_taxLabel{nullptr};

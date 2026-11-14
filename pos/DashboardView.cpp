@@ -31,17 +31,16 @@ void DashboardView::setupUi() {
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 12px 16px;"
         "}"
     );
     auto* bannerLayout = new QHBoxLayout(statusBanner);
-    bannerLayout->setContentsMargins(12, 8, 12, 8);
+    bannerLayout->setContentsMargins(16, 12, 16, 12);
 
-    auto* terminalStatus = new QLabel("Terminal Status: <b>Online</b> (Cash Register #01)", this);
-    terminalStatus->setStyleSheet("font-size: 13px; color: #1F2937;");
+    auto* terminalStatus = new QLabel("Register Status: <b>Online</b> (Cash Register #01)", statusBanner);
+    terminalStatus->setStyleSheet("font-size: 13px; color: #1F2937; background: transparent;");
 
-    auto* sessionInfo = new QLabel("Session: Active | Barcode Scanner: Connected", this);
-    sessionInfo->setStyleSheet("font-size: 13px; color: #4B5563;");
+    auto* sessionInfo = new QLabel("Session: Active | Barcode Scanner: Ready", statusBanner);
+    sessionInfo->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
 
     bannerLayout->addWidget(terminalStatus);
     bannerLayout->addStretch();
@@ -102,19 +101,18 @@ QFrame* DashboardView::createCard(const QString& title,
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 16px;"
         "}"
     );
 
     auto* cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(18, 18, 18, 18);
+    cardLayout->setContentsMargins(20, 18, 20, 18);
     cardLayout->setSpacing(12);
 
     auto* cardTitle = new QLabel(title, card);
-    cardTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #1E3A5F;");
+    cardTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #1E3A5F; background: transparent;");
 
     auto* cardDesc = new QLabel(description, card);
-    cardDesc->setStyleSheet("font-size: 13px; color: #4B5563; line-height: 1.4;");
+    cardDesc->setStyleSheet("font-size: 13px; color: #4B5563; line-height: 1.4; background: transparent;");
     cardDesc->setWordWrap(true);
 
     auto* actionBtn = new QPushButton(buttonText, card);

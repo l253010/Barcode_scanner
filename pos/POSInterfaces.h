@@ -5,12 +5,7 @@
 #include <memory>
 
 // ============================================================================
-// Shared Data Structures for Increment 2 POS System
-// Designed for seamless integration across all 4 team members:
-// - Jannat: POS GUI and main application interface
-// - Eman: Product management and billing calculations
-// - Eman 2: Camera-based barcode scanner
-// - Jav: Order management and file storage
+// Shared Data Structures for Retail POS System
 // ============================================================================
 
 // ----------------------------------------------------------------------------
@@ -22,10 +17,11 @@ struct ProductInfo {
     std::string barcode;               // Validated 6-digit barcode (Code 39)
     std::string acronym;               // Short product code (e.g., "MILK-1L")
     std::string name;                  // Full product name (e.g., "Fresh Whole Milk 1L")
+    std::string category;              // Product category (e.g., "Dairy & Milk")
     std::string unit;                  // Unit of measurement (e.g., "Bottle", "Kg", "Loaf")
-    double      unitPrice{0.0};        // Price per unit in USD ($)
+    double      unitPrice{0.0};        // Price per unit in PKR (Rs.)
     double      taxRate{0.0};          // Tax rate (e.g., 0.05 for 5%)
-    double      discountPerUnit{0.0};  // Discount per unit in USD ($)
+    double      discountPerUnit{0.0};  // Discount per unit in PKR (Rs.)
     int         availableQuantity{0};  // Inventory stock count
 };
 
@@ -94,7 +90,6 @@ struct BarcodeScanResult {
 // Abstract Service Interfaces for Team Modularity
 // ============================================================================
 
-// Interface for Product Management (assigned to Eman)
 class IProductService {
 public:
     virtual ~IProductService() = default;
@@ -103,7 +98,6 @@ public:
     virtual std::vector<ProductInfo> getAllProducts() = 0;
 };
 
-// Interface for Billing Calculations (assigned to Eman)
 class IBillingService {
 public:
     virtual ~IBillingService() = default;
@@ -112,7 +106,6 @@ public:
                                   const std::vector<OrderItem>& items) = 0;
 };
 
-// Interface for Camera-Based Barcode Scanner (assigned to Eman 2)
 class ICameraScannerService {
 public:
     virtual ~ICameraScannerService() = default;
@@ -123,7 +116,6 @@ public:
     virtual BarcodeScanResult captureAndScan() = 0;
 };
 
-// Interface for Order Storage and Persistence (assigned to Jav)
 class IOrderStorageService {
 public:
     virtual ~IOrderStorageService() = default;
