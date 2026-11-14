@@ -19,11 +19,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 void MainWindow::setupUi() {
-    setWindowTitle("Retail Point of Sale (POS) System — Increment 2 Terminal");
+    setWindowTitle("RETAIL POS — Store Checkout Terminal");
     resize(1200, 780);
-    setMinimumSize(980, 640);
+    setMinimumSize(1000, 660);
 
-    // Global application stylesheet: Light neutral background, dark charcoal text, muted navy accents
+    // Global application stylesheet:
+    // Light neutral background (#F4F5F7), crisp white content (#FFFFFF),
+    // dark charcoal text (#1F2937), muted navy accent (#1E3A5F).
     setStyleSheet(
         "QMainWindow {"
         "  background-color: #F4F5F7;"
@@ -31,6 +33,57 @@ void MainWindow::setupUi() {
         "QWidget {"
         "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"
         "  color: #1F2937;"
+        "}"
+        "QLineEdit {"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
+        "  border: 1px solid #D1D5DB;"
+        "  border-radius: 4px;"
+        "  padding: 7px 10px;"
+        "  font-size: 13px;"
+        "  selection-background-color: #1E3A5F;"
+        "  selection-color: #FFFFFF;"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1px solid #1E3A5F;"
+        "}"
+        "QComboBox {"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
+        "  border: 1px solid #D1D5DB;"
+        "  border-radius: 4px;"
+        "  padding: 6px 10px;"
+        "  font-size: 13px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
+        "  selection-background-color: #EFF6FF;"
+        "  selection-color: #1E3A5F;"
+        "  border: 1px solid #D1D5DB;"
+        "}"
+        "QSpinBox {"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
+        "  border: 1px solid #D1D5DB;"
+        "  border-radius: 4px;"
+        "  padding: 4px 8px;"
+        "  font-size: 13px;"
+        "}"
+        "QTableWidget {"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
+        "  gridline-color: #E5E7EB;"
+        "  border: 1px solid #D1D5DB;"
+        "  border-radius: 4px;"
+        "  font-size: 13px;"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: #F3F4F6 !important;"
+        "  color: #1F2937 !important;"
+        "  font-weight: bold;"
+        "  border: 1px solid #E5E7EB;"
+        "  padding: 7px;"
         "}"
         "QScrollBar:vertical {"
         "  background: #F3F4F6;"
@@ -77,7 +130,7 @@ void MainWindow::setupUi() {
     auto* brandTitle = new QLabel("RETAIL POS", brandBox);
     brandTitle->setStyleSheet("font-size: 17px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;");
 
-    auto* brandSub = new QLabel("Increment 2 Terminal", brandBox);
+    auto* brandSub = new QLabel("Store Checkout Terminal", brandBox);
     brandSub->setStyleSheet("font-size: 12px; color: #93C5FD;");
 
     brandLayout->addWidget(brandTitle);
@@ -93,12 +146,12 @@ void MainWindow::setupUi() {
     };
 
     std::vector<NavItem> navItems = {
-        {"1. Dashboard",             0},
-        {"2. Cashier / New Order",   1},
-        {"3. Product Description",   2},
-        {"4. Bill Preview",          3},
-        {"5. Payment Processing",    4},
-        {"6. Manager View",          5}
+        {"Dashboard",             0},
+        {"Cashier / New Order",   1},
+        {"Product Description",   2},
+        {"Bill Preview",          3},
+        {"Payment Processing",    4},
+        {"Manager View",          5}
     };
 
     m_navButtons.clear();
@@ -138,21 +191,21 @@ void MainWindow::setupUi() {
 
     sidebarLayout->addStretch();
 
-    // Bottom Sidebar System Info
+    // Bottom Sidebar Retail Store Info
     auto* sysInfoBox = new QFrame(sidebarFrame);
     sysInfoBox->setStyleSheet("border: none; padding: 12px 16px;");
     auto* sysLayout = new QVBoxLayout(sysInfoBox);
     sysLayout->setContentsMargins(12, 12, 12, 12);
-    sysLayout->setSpacing(2);
+    sysLayout->setSpacing(3);
 
-    auto* termLbl = new QLabel("Terminal #01 (Active)", sysInfoBox);
-    termLbl->setStyleSheet("font-size: 11px; font-weight: bold; color: #166534;");
+    auto* termLbl = new QLabel("Terminal #01 (Online)", sysInfoBox);
+    termLbl->setStyleSheet("font-size: 12px; font-weight: bold; color: #166534;");
 
-    auto* verLbl = new QLabel("Increment 2 • Qt 6 C++17", sysInfoBox);
-    verLbl->setStyleSheet("font-size: 11px; color: #9CA3AF;");
+    auto* storeLbl = new QLabel("Store: Central Branch", sysInfoBox);
+    storeLbl->setStyleSheet("font-size: 11px; color: #6B7280;");
 
     sysLayout->addWidget(termLbl);
-    sysLayout->addWidget(verLbl);
+    sysLayout->addWidget(storeLbl);
     sidebarLayout->addWidget(sysInfoBox);
 
     rootLayout->addWidget(sidebarFrame);

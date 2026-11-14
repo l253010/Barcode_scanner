@@ -9,15 +9,16 @@ MockDataService::MockDataService() {
 }
 
 void MockDataService::initSampleCatalog() {
+    // Realistic retail store catalog with PKR pricing (Rs.)
     m_catalog = {
-        {101, "100001", "MILK-1L", "Fresh Whole Milk 1L",          "Bottle",  2.50, 0.05, 0.20, 45},
-        {102, "100002", "BREAD-W", "Whole Wheat Bread 500g",        "Loaf",    3.20, 0.05, 0.30, 30},
-        {103, "100003", "EGGS-12", "Fresh Farm Brown Eggs (12-pk)", "Pack",    4.50, 0.05, 0.50, 60},
-        {104, "100004", "RICE-5K", "Premium Basmati Rice 5kg",      "Bag",    14.99, 0.08, 1.50, 25},
-        {105, "100005", "OIL-1L",  "Pure Extra Virgin Olive Oil 1L", "Bottle",  9.80, 0.08, 1.00, 40},
-        {106, "100006", "TEA-500", "Organic Green Tea Leaves 500g", "Box",     5.40, 0.05, 0.40, 35},
-        {107, "100007", "SUGAR-2", "Refined Cane Sugar 2kg",        "Bag",     3.80, 0.05, 0.30, 50},
-        {108, "100008", "COF-250", "Ground Arabica Coffee 250g",    "Bag",     7.50, 0.08, 0.75, 20}
+        {101, "100001", "MILK-1L", "Fresh Whole Milk 1L",          "Bottle",  250.00, 0.05, 20.00, 45},
+        {102, "100002", "BREAD-W", "Whole Wheat Bread 500g",        "Loaf",    120.00, 0.05, 15.00, 30},
+        {103, "100003", "EGGS-12", "Fresh Farm Brown Eggs (12-pk)", "Pack",    380.00, 0.05, 30.00, 60},
+        {104, "100004", "RICE-5K", "Premium Basmati Rice 5kg",      "Bag",    1850.00, 0.05, 150.00, 25},
+        {105, "100005", "OIL-1L",  "Pure Cooking Oil 1L",           "Bottle",  540.00, 0.05, 40.00, 40},
+        {106, "100006", "TEA-500", "Premium Black Tea 500g",        "Box",     480.00, 0.05, 35.00, 35},
+        {107, "100007", "SUGAR-2", "Refined White Sugar 2kg",       "Bag",     320.00, 0.05, 25.00, 50},
+        {108, "100008", "COF-250", "Classic Roast Coffee 200g",     "Jar",     950.00, 0.08, 75.00, 20}
     };
 }
 
@@ -119,7 +120,7 @@ BarcodeScanResult MockDataService::captureAndScan() {
     BarcodeScanResult result;
     if (!m_cameraActive) {
         result.success = false;
-        result.errorMessage = "Camera module is currently inactive. Please start camera first.";
+        result.errorMessage = "Scanner module is currently inactive. Please start scanner first.";
         return result;
     }
     // Simulate detecting a sample product barcode
@@ -129,7 +130,6 @@ BarcodeScanResult MockDataService::captureAndScan() {
 }
 
 bool MockDataService::saveBill(const BillInfo& bill) {
-    // Check if order already exists (e.g. Updating payment status)
     for (auto& existing : m_savedOrders) {
         if (existing.orderId == bill.orderId) {
             existing = bill;

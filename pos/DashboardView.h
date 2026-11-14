@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QGridLayout>
 #include <QFrame>
+#include <functional>
 
 class DashboardView : public QWidget {
     Q_OBJECT
@@ -24,5 +25,5 @@ private:
     QFrame* createCard(const QString& title,
                        const QString& description,
                        const QString& buttonText,
-                       const char* slot);
+                       std::function<void()> onClick);
 };

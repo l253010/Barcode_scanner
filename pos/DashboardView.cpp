@@ -14,10 +14,10 @@ void DashboardView::setupUi() {
     auto* headerLayout = new QVBoxLayout();
     headerLayout->setSpacing(4);
 
-    auto* titleLabel = new QLabel("System Dashboard", this);
+    auto* titleLabel = new QLabel("Store Dashboard", this);
     titleLabel->setStyleSheet("font-size: 22px; font-weight: bold; color: #1E3A5F;");
 
-    auto* subtitleLabel = new QLabel("Point of Sale (POS) — Central Navigation & Operations Overview", this);
+    auto* subtitleLabel = new QLabel("Point of Sale (POS) — Central Retail Operations & Terminal Management", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
 
     headerLayout->addWidget(titleLabel);
@@ -37,10 +37,10 @@ void DashboardView::setupUi() {
     auto* bannerLayout = new QHBoxLayout(statusBanner);
     bannerLayout->setContentsMargins(12, 8, 12, 8);
 
-    auto* terminalStatus = new QLabel("Terminal Status: <b>Online</b> (Register #01)", this);
+    auto* terminalStatus = new QLabel("Terminal Status: <b>Online</b> (Cash Register #01)", this);
     terminalStatus->setStyleSheet("font-size: 13px; color: #1F2937;");
 
-    auto* sessionInfo = new QLabel("Session: Active | Barcode Mode: Code 39 Numeric (6-Digit)", this);
+    auto* sessionInfo = new QLabel("Session: Active | Barcode Scanner: Connected", this);
     sessionInfo->setStyleSheet("font-size: 13px; color: #4B5563;");
 
     bannerLayout->addWidget(terminalStatus);
@@ -55,36 +55,36 @@ void DashboardView::setupUi() {
     // Card 1: Cashier Section / New Order
     auto* cashierCard = createCard(
         "Cashier / New Order",
-        "Open the primary checkout interface. Scan product barcodes, adjust item quantities, calculate totals, and generate invoices for customers.",
+        "Open checkout interface. Scan product barcodes, adjust item quantities, calculate totals, and process customer sales transactions.",
         "Open Cashier Terminal",
-        SLOT(navigateToCashier())
+        [this]() { emit navigateToCashier(); }
     );
     gridLayout->addWidget(cashierCard, 0, 0);
 
     // Card 2: Product Description & Lookup
     auto* productCard = createCard(
         "Product Description",
-        "Inspect comprehensive product specifications, measurement units, unit pricing, applicable tax rates, discounts, and visual Code 39 barcodes.",
+        "Lookup comprehensive product details, unit pricing, measurement units, available stock, and barcode verification.",
         "Lookup Products",
-        SLOT(navigateToProductDescription())
+        [this]() { emit navigateToProductDescription(); }
     );
     gridLayout->addWidget(productCard, 0, 1);
 
     // Card 3: Orders Section / Invoices
     auto* ordersCard = createCard(
-        "Orders & Billing",
-        "Access active and finalized billing invoices. Review item breakdowns, payment modes, and invoice status.",
+        "Bill & Invoice Records",
+        "Access active and finalized customer invoices. Review item breakdowns, payment methods, and receipt status.",
         "View Invoices",
-        SLOT(navigateToOrders())
+        [this]() { emit navigateToOrders(); }
     );
     gridLayout->addWidget(ordersCard, 1, 0);
 
     // Card 4: Manager Section
     auto* managerCard = createCard(
         "Manager Section",
-        "View store inventory stock levels, product catalog entries, unit pricing structure, and barcode associations.",
+        "Inspect store inventory levels, product catalog, unit pricing structure, and stock availability.",
         "Open Manager View",
-        SLOT(navigateToManager())
+        [this]() { emit navigateToManager(); }
     );
     gridLayout->addWidget(managerCard, 1, 1);
 
@@ -95,7 +95,7 @@ void DashboardView::setupUi() {
 QFrame* DashboardView::createCard(const QString& title,
                                   const QString& description,
                                   const QString& buttonText,
-                                  const char* slot) {
+                                  std::function<void()> onClick) {
     auto* card = new QFrame(this);
     card->setStyleSheet(
         "QFrame {"
@@ -107,7 +107,7 @@ QFrame* DashboardView::createCard(const QString& title,
     );
 
     auto* cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(16, 16, 16, 16);
+    cardLayout->setContentsMargins(18, 18, 18, 18);
     cardLayout->setSpacing(12);
 
     auto* cardTitle = new QLabel(title, card);
@@ -137,7 +137,7 @@ QFrame* DashboardView::createCard(const QString& title,
     );
     actionBtn->setCursor(Qt::PointingHandCursor);
 
-    connect(actionBtn, SIGNAL(clicked()), this, slot);
+    connect(actionBtn, &QPushButton::clicked, this, onClick);
 
     cardLayout->addWidget(cardTitle);
     cardLayout->addWidget(cardDesc);
