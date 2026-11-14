@@ -19,9 +19,9 @@ void ManagerView::setupUi() {
     // Header
     auto* topLayout = new QHBoxLayout();
     auto* titleCol = new QVBoxLayout();
-    auto* titleLabel = new QLabel("Manager Terminal — Inventory & Catalog", this);
+    auto* titleLabel = new QLabel("Manager Terminal — Inventory & Pricing Catalog", this);
     titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
-    auto* subtitleLabel = new QLabel("Access product descriptions, stock levels, and store pricing records", this);
+    auto* subtitleLabel = new QLabel("View store inventory stock levels, product catalog, and pricing records", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
     titleCol->addWidget(titleLabel);
     titleCol->addWidget(subtitleLabel);
@@ -55,10 +55,17 @@ void ManagerView::setupUi() {
 
     m_searchInput = new QLineEdit(this);
     m_searchInput->setPlaceholderText("Filter by barcode, acronym, or product name...");
-    m_searchInput->setStyleSheet("padding: 7px 12px; font-size: 13px; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_searchInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 7px 12px;"
+        "font-size: 13px;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
     connect(m_searchInput, &QLineEdit::textChanged, this, &ManagerView::onSearchTextChanged);
 
-    auto* inspectBtn = new QPushButton("Inspect Selected in Product Description", this);
+    auto* inspectBtn = new QPushButton("View Full Product Description", this);
     inspectBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #1E3A5F;"
@@ -81,7 +88,7 @@ void ManagerView::setupUi() {
     // Catalog Table
     m_catalogTable = new QTableWidget(this);
     m_catalogTable->setColumnCount(9);
-    QStringList headers = {"ID", "Barcode", "Acronym", "Product Name", "Unit", "Unit Price", "Tax Rate", "Discount", "Available Stock"};
+    QStringList headers = {"ID", "Barcode", "Acronym", "Product Name", "Unit", "Unit Price (Rs.)", "Tax Rate", "Discount (Rs.)", "Available Stock"};
     m_catalogTable->setHorizontalHeaderLabels(headers);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_catalogTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -97,17 +104,18 @@ void ManagerView::setupUi() {
     m_catalogTable->setAlternatingRowColors(true);
     m_catalogTable->setStyleSheet(
         "QTableWidget {"
-        "  background-color: #FFFFFF;"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
         "  border: 1px solid #D1D5DB;"
         "  gridline-color: #E5E7EB;"
         "  font-size: 13px;"
         "}"
         "QHeaderView::section {"
-        "  background-color: #E5E7EB;"
-        "  color: #1F2937;"
+        "  background-color: #F3F4F6 !important;"
+        "  color: #1F2937 !important;"
         "  font-weight: bold;"
-        "  padding: 6px;"
-        "  border: none;"
+        "  padding: 7px;"
+        "  border: 1px solid #E5E7EB;"
         "}"
     );
     connect(m_catalogTable, &QTableWidget::cellDoubleClicked, [this](int row, int /*col*/) {
@@ -149,13 +157,13 @@ void ManagerView::populateTable(const std::vector<ProductInfo>& products) {
         auto* unitItem = new QTableWidgetItem(QString::fromStdString(p.unit));
         unitItem->setTextAlignment(Qt::AlignCenter);
 
-        auto* priceItem = new QTableWidgetItem(QString("$%1").arg(p.unitPrice, 0, 'f', 2));
+        auto* priceItem = new QTableWidgetItem(QString("Rs. %1").arg(p.unitPrice, 0, 'f', 2));
         priceItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
         auto* taxItem = new QTableWidgetItem(QString("%1%").arg(p.taxRate * 100.0, 0, 'f', 1));
         taxItem->setTextAlignment(Qt::AlignCenter);
 
-        auto* discItem = new QTableWidgetItem(QString("$%1").arg(p.discountPerUnit, 0, 'f', 2));
+        auto* discItem = new QTableWidgetItem(QString("-Rs. %1").arg(p.discountPerUnit, 0, 'f', 2));
         discItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         discItem->setForeground(QBrush(QColor("#166534")));
 
@@ -174,7 +182,7 @@ void ManagerView::populateTable(const std::vector<ProductInfo>& products) {
         m_catalogTable->setItem(i, 8, stockItem);
     }
 
-    m_summaryLabel->setText(QString("Total catalog entries displayed: %1 (Double-click any row to inspect)").arg(products.size()));
+    m_summaryLabel->setText(QString("Total catalog entries displayed: %1 (Double-click any row to view description)").arg(products.size()));
 }
 
 void ManagerView::onSearchTextChanged(const QString& text) {
@@ -209,6 +217,6 @@ void ManagerView::onInspectClicked() {
     if (row >= 0 && m_catalogTable->item(row, 1)) {
         emit inspectProductRequested(m_catalogTable->item(row, 1)->text().toStdString());
     } else {
-        QMessageBox::information(this, "Select Product", "Please select a product row from the table to inspect.");
+        QMessageBox::information(this, "Select Product", "Please select a product row from the table to view its description.");
     }
 }

@@ -17,7 +17,7 @@ void PaymentView::setupUi() {
     // Title & Back Button
     auto* topLayout = new QHBoxLayout();
     auto* titleCol = new QVBoxLayout();
-    auto* titleLabel = new QLabel("Payment Processing Terminal", this);
+    auto* titleLabel = new QLabel("Payment Processing", this);
     titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
     auto* subtitleLabel = new QLabel("Select customer payment mode, record transaction details, and finalize sale", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
@@ -69,9 +69,9 @@ void PaymentView::setupUi() {
 
     auto* amountCol = new QVBoxLayout();
     auto* amtTitle = new QLabel("TOTAL AMOUNT DUE:", overviewFrame);
-    amtTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4B5563; text-align: right;");
+    amtTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4B5563;");
     amtTitle->setAlignment(Qt::AlignRight);
-    m_amountDueLabel = new QLabel("$0.00", overviewFrame);
+    m_amountDueLabel = new QLabel("Rs. 0.00", overviewFrame);
     m_amountDueLabel->setStyleSheet("font-size: 26px; font-weight: bold; color: #1E3A5F;");
     m_amountDueLabel->setAlignment(Qt::AlignRight);
     amountCol->addWidget(amtTitle);
@@ -167,16 +167,24 @@ QWidget* PaymentView::createCashPanel() {
     grid->setHorizontalSpacing(16);
     grid->setVerticalSpacing(10);
 
-    auto* tendLabel = new QLabel("Amount Tendered ($):", panel);
+    auto* tendLabel = new QLabel("Amount Tendered (Rs.):", panel);
     tendLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
     m_tenderedInput = new QLineEdit(panel);
     m_tenderedInput->setPlaceholderText("0.00");
-    m_tenderedInput->setStyleSheet("padding: 7px 10px; font-size: 14px; font-weight: bold; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_tenderedInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 7px 10px;"
+        "font-size: 14px;"
+        "font-weight: bold;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
     connect(m_tenderedInput, &QLineEdit::textChanged, this, &PaymentView::onTenderedAmountChanged);
 
-    auto* changeLabel = new QLabel("Change Due ($):", panel);
+    auto* changeLabel = new QLabel("Change Due (Rs.):", panel);
     changeLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
-    m_changeDueLabel = new QLabel("$0.00", panel);
+    m_changeDueLabel = new QLabel("Rs. 0.00", panel);
     m_changeDueLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #166534;");
 
     grid->addWidget(tendLabel, 0, 0);
@@ -185,21 +193,21 @@ QWidget* PaymentView::createCashPanel() {
     grid->addWidget(m_changeDueLabel, 1, 1);
     layout->addLayout(grid);
 
-    // Quick Cash Buttons
+    // Quick Cash Buttons in PKR
     auto* quickLayout = new QHBoxLayout();
     quickLayout->setSpacing(8);
-    auto* qLabel = new QLabel("Quick Cash:", panel);
+    auto* qLabel = new QLabel("Quick Tender:", panel);
     qLabel->setStyleSheet("color: #4B5563; font-size: 12px; font-weight: 600;");
     quickLayout->addWidget(qLabel);
 
-    for (double amt : {10.0, 20.0, 50.0, 100.0}) {
-        auto* qBtn = new QPushButton(QString("$%1").arg(static_cast<int>(amt)), panel);
+    for (double amt : {500.0, 1000.0, 2000.0, 5000.0}) {
+        auto* qBtn = new QPushButton(QString("Rs. %1").arg(static_cast<int>(amt)), panel);
         qBtn->setStyleSheet(
             "QPushButton {"
             "  background-color: #FFFFFF;"
             "  border: 1px solid #D1D5DB;"
             "  border-radius: 3px;"
-            "  padding: 4px 10px;"
+            "  padding: 5px 12px;"
             "  font-weight: 600;"
             "  font-size: 12px;"
             "  color: #1F2937;"
@@ -210,13 +218,13 @@ QWidget* PaymentView::createCashPanel() {
         quickLayout->addWidget(qBtn);
     }
 
-    auto* exactBtn = new QPushButton("Exact Cash", panel);
+    auto* exactBtn = new QPushButton("Exact Amount", panel);
     exactBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #EFF6FF;"
         "  border: 1px solid #93C5FD;"
         "  border-radius: 3px;"
-        "  padding: 4px 10px;"
+        "  padding: 5px 12px;"
         "  font-weight: 600;"
         "  font-size: 12px;"
         "  color: #1E3A5F;"
@@ -243,13 +251,25 @@ QWidget* PaymentView::createCardPanel() {
 
     auto* mLabel = new QLabel("Merchant Terminal Name:", panel);
     mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
-    m_cardMerchantInput = new QLineEdit("HBL Visa / Mastercard POS Terminal #1", panel);
-    m_cardMerchantInput->setStyleSheet("padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_cardMerchantInput = new QLineEdit("Visa / Mastercard POS Terminal #01", panel);
+    m_cardMerchantInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 6px 10px;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
 
-    auto* aLabel = new QLabel("Card Auth / Transaction Code:", panel);
+    auto* aLabel = new QLabel("Card Auth / Approval Code:", panel);
     aLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
     m_cardAuthCodeInput = new QLineEdit("AUTH-892401", panel);
-    m_cardAuthCodeInput->setStyleSheet("padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_cardAuthCodeInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 6px 10px;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
 
     grid->addWidget(mLabel, 0, 0);
     grid->addWidget(m_cardMerchantInput, 0, 1);
@@ -267,15 +287,27 @@ QWidget* PaymentView::createWalletPanel() {
     grid->setHorizontalSpacing(16);
     grid->setVerticalSpacing(10);
 
-    auto* mLabel = new QLabel("Wallet Merchant Name:", panel);
+    auto* mLabel = new QLabel("Wallet Provider / Merchant:", panel);
     mLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
-    m_walletMerchantInput = new QLineEdit("JazzCash / EasyPaisa / Apple Pay Terminal", panel);
-    m_walletMerchantInput->setStyleSheet("padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_walletMerchantInput = new QLineEdit("JazzCash / EasyPaisa / Raast Terminal", panel);
+    m_walletMerchantInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 6px 10px;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
 
-    auto* tLabel = new QLabel("Wallet Reference / Txn ID:", panel);
+    auto* tLabel = new QLabel("Transaction Reference ID:", panel);
     tLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
     m_walletTxnIdInput = new QLineEdit("WAL-TXN-559102", panel);
-    m_walletTxnIdInput->setStyleSheet("padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; background-color: #FFFFFF;");
+    m_walletTxnIdInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "padding: 6px 10px;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+    );
 
     grid->addWidget(mLabel, 0, 0);
     grid->addWidget(m_walletMerchantInput, 0, 1);
@@ -291,9 +323,8 @@ void PaymentView::loadBill(const BillInfo& bill) {
                            .arg(QString::fromStdString(bill.billId))
                            .arg(QString::fromStdString(bill.orderId)));
     m_customerLabel->setText(QString("Customer: <b>%1</b>").arg(QString::fromStdString(bill.customerName)));
-    m_amountDueLabel->setText(QString("$%1").arg(bill.totalPayable, 0, 'f', 2));
+    m_amountDueLabel->setText(QString("Rs. %1").arg(bill.totalPayable, 0, 'f', 2));
 
-    // Reset default inputs
     m_tenderedInput->setText(QString("%1").arg(bill.totalPayable, 0, 'f', 2));
     updateChangeCalculation();
 }
@@ -321,9 +352,9 @@ void PaymentView::updateChangeCalculation() {
 
     double diff = tendered - m_currentBill.totalPayable;
     if (diff < -0.001) {
-        m_changeDueLabel->setText(QString("<font color='#DC2626'>Short by $%1</font>").arg(-diff, 0, 'f', 2));
+        m_changeDueLabel->setText(QString("<font color='#DC2626'>Short by Rs. %1</font>").arg(-diff, 0, 'f', 2));
     } else {
-        m_changeDueLabel->setText(QString("<font color='#166534'>$%1</font>").arg(diff, 0, 'f', 2));
+        m_changeDueLabel->setText(QString("<font color='#166534'>Rs. %1</font>").arg(diff, 0, 'f', 2));
     }
 }
 
@@ -335,13 +366,13 @@ void PaymentView::onConfirmPaymentClicked() {
         double tendered = m_tenderedInput->text().toDouble(&ok);
         if (!ok || tendered < m_currentBill.totalPayable - 0.001) {
             QMessageBox::warning(this, "Payment Insufficient",
-                                 QString("Amount tendered ($%1) is less than the total amount due ($%2).")
+                                 QString("Amount tendered (Rs. %1) is less than the total amount due (Rs. %2).")
                                  .arg(tendered, 0, 'f', 2)
                                  .arg(m_currentBill.totalPayable, 0, 'f', 2));
             return;
         }
         m_currentBill.paymentMode = "Cash";
-        m_currentBill.paymentMerchant = "Cash Register Drawer #01";
+        m_currentBill.paymentMerchant = "Cash Drawer #01";
         m_currentBill.amountTendered = tendered;
         m_currentBill.changeDue = tendered - m_currentBill.totalPayable;
     } else if (modeId == 1) { // Card
@@ -365,12 +396,12 @@ void PaymentView::onConfirmPaymentClicked() {
     QMessageBox::information(
         this,
         "Payment Approved",
-        QString("Transaction successfully approved!\n\n"
+        QString("Transaction successfully completed!\n\n"
                 "Bill ID: %1\n"
                 "Payment Mode: %2\n"
                 "Merchant: %3\n"
-                "Amount Paid: $%4\n"
-                "Change Due: $%5\n\n"
+                "Amount Paid: Rs. %4\n"
+                "Change Due: Rs. %5\n\n"
                 "Receipt marked as PAID.")
         .arg(QString::fromStdString(m_currentBill.billId))
         .arg(QString::fromStdString(m_currentBill.paymentMode))

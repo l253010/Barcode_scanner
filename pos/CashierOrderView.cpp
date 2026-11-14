@@ -46,16 +46,30 @@ void CashierOrderView::setupUi() {
     customerLayout->setSpacing(12);
 
     auto* nameLabel = new QLabel("Customer Name:", customerCard);
-    nameLabel->setStyleSheet("font-weight: 600; color: #1F2937;");
+    nameLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
     m_customerNameInput = new QLineEdit(customerCard);
-    m_customerNameInput->setPlaceholderText("e.g. John Doe (default: Walk-in)");
-    m_customerNameInput->setStyleSheet("padding: 5px 8px; border: 1px solid #D1D5DB; border-radius: 3px;");
+    m_customerNameInput->setPlaceholderText("Enter customer name (default: Walk-in)");
+    m_customerNameInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 6px 10px;"
+        "font-size: 13px;"
+    );
 
     auto* contactLabel = new QLabel("Contact (Optional):", customerCard);
-    contactLabel->setStyleSheet("font-weight: 600; color: #1F2937;");
+    contactLabel->setStyleSheet("font-weight: 600; color: #1F2937; font-size: 13px;");
     m_customerContactInput = new QLineEdit(customerCard);
-    m_customerContactInput->setPlaceholderText("Phone or email");
-    m_customerContactInput->setStyleSheet("padding: 5px 8px; border: 1px solid #D1D5DB; border-radius: 3px;");
+    m_customerContactInput->setPlaceholderText("Phone or mobile number");
+    m_customerContactInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 6px 10px;"
+        "font-size: 13px;"
+    );
 
     customerLayout->addWidget(nameLabel);
     customerLayout->addWidget(m_customerNameInput, 2);
@@ -63,7 +77,7 @@ void CashierOrderView::setupUi() {
     customerLayout->addWidget(m_customerContactInput, 2);
     leftColumn->addWidget(customerCard);
 
-    // Barcode Scanning & Camera Preview Bar
+    // Barcode Scanning Bar
     auto* scanCard = new QFrame(this);
     scanCard->setStyleSheet(
         "QFrame {"
@@ -84,8 +98,15 @@ void CashierOrderView::setupUi() {
     barcodeTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px;");
 
     m_barcodeInput = new QLineEdit(scanCard);
-    m_barcodeInput->setPlaceholderText("Enter or scan 6-digit barcode (e.g. 100001)...");
-    m_barcodeInput->setStyleSheet("padding: 6px 10px; font-size: 13px; border: 1px solid #D1D5DB; border-radius: 4px;");
+    m_barcodeInput->setPlaceholderText("Scan or enter 6-digit barcode (e.g. 100001)...");
+    m_barcodeInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 7px 12px;"
+        "font-size: 13px;"
+    );
 
     auto* addBarcodeBtn = new QPushButton("Add to Cart", scanCard);
     addBarcodeBtn->setStyleSheet(
@@ -93,7 +114,7 @@ void CashierOrderView::setupUi() {
         "  background-color: #1E3A5F;"
         "  color: white;"
         "  font-weight: 600;"
-        "  padding: 6px 14px;"
+        "  padding: 7px 16px;"
         "  border-radius: 4px;"
         "  border: none;"
         "}"
@@ -102,16 +123,25 @@ void CashierOrderView::setupUi() {
     connect(addBarcodeBtn, &QPushButton::clicked, this, &CashierOrderView::onAddBarcodeClicked);
     connect(m_barcodeInput, &QLineEdit::returnPressed, this, &CashierOrderView::onAddBarcodeClicked);
 
-    auto* quickAddLabel = new QLabel("Quick Sample:", scanCard);
-    quickAddLabel->setStyleSheet("color: #4B5563; font-weight: 600;");
+    auto* quickAddLabel = new QLabel("Quick Select:", scanCard);
+    quickAddLabel->setStyleSheet("color: #4B5563; font-weight: 600; font-size: 13px;");
 
     m_quickAddCombo = new QComboBox(scanCard);
-    m_quickAddCombo->setStyleSheet("padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 3px;");
-    m_quickAddCombo->addItem("-- Select Sample Item --");
+    m_quickAddCombo->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 6px 10px;"
+        "font-size: 13px;"
+    );
+    m_quickAddCombo->addItem("-- Select Catalog Item --");
     if (m_productService) {
         for (const auto& prod : m_productService->getAllProducts()) {
+            std::ostringstream pss;
+            pss << std::fixed << std::setprecision(2) << prod.unitPrice;
             m_quickAddCombo->addItem(
-                QString::fromStdString(prod.barcode + " - " + prod.name + " ($" + std::to_string(prod.unitPrice).substr(0, 4) + ")"),
+                QString::fromStdString(prod.barcode + " - " + prod.name + " (Rs. " + pss.str() + ")"),
                 QVariant(QString::fromStdString(prod.barcode))
             );
         }
@@ -127,27 +157,27 @@ void CashierOrderView::setupUi() {
     scanLayout->addLayout(scanInputRow);
 
     // Status Label for validation feedback
-    m_scanStatusLabel = new QLabel("Ready for barcode scan. Supports Code 39 numeric format.", scanCard);
+    m_scanStatusLabel = new QLabel("Ready for barcode scan. Scan product barcode or pick from Quick Select.", scanCard);
     m_scanStatusLabel->setStyleSheet("font-size: 12px; color: #6B7280;");
     scanLayout->addWidget(m_scanStatusLabel);
 
-    // Camera Preview Placeholder Section (Reserved for Eman 2's module)
+    // Optical Scanner Preview Section
     m_cameraFrame = new QFrame(scanCard);
     m_cameraFrame->setStyleSheet(
         "QFrame {"
         "  background-color: #F9FAFB;"
         "  border: 1px dashed #9CA3AF;"
         "  border-radius: 4px;"
-        "  padding: 10px;"
+        "  padding: 8px 12px;"
         "}"
     );
     auto* cameraLayout = new QHBoxLayout(m_cameraFrame);
     cameraLayout->setContentsMargins(10, 6, 10, 6);
 
-    m_cameraStatusLabel = new QLabel("<b>[Camera Scanner Module Placeholder]</b> — Ready for integration with Eman 2's camera scanner", m_cameraFrame);
+    m_cameraStatusLabel = new QLabel("<b>[Optical Scanner Active]</b> — Live Barcode Scanner Ready", m_cameraFrame);
     m_cameraStatusLabel->setStyleSheet("color: #374151; font-size: 12px;");
 
-    m_cameraToggleBtn = new QPushButton("Simulate Camera Scan", m_cameraFrame);
+    m_cameraToggleBtn = new QPushButton("Simulate Barcode Scan", m_cameraFrame);
     m_cameraToggleBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #FFFFFF;"
@@ -172,7 +202,7 @@ void CashierOrderView::setupUi() {
     // Cart Table
     m_cartTable = new QTableWidget(this);
     m_cartTable->setColumnCount(7);
-    QStringList headers = {"Product Name", "Acronym", "Unit Price", "Qty", "Discount", "Subtotal", "Remove"};
+    QStringList headers = {"Product Name", "Acronym", "Unit Price (Rs.)", "Qty", "Discount (Rs.)", "Subtotal (Rs.)", "Remove"};
     m_cartTable->setHorizontalHeaderLabels(headers);
     m_cartTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_cartTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -186,18 +216,19 @@ void CashierOrderView::setupUi() {
     m_cartTable->setAlternatingRowColors(true);
     m_cartTable->setStyleSheet(
         "QTableWidget {"
-        "  background-color: #FFFFFF;"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
         "  gridline-color: #E5E7EB;"
         "  font-size: 13px;"
         "}"
         "QHeaderView::section {"
-        "  background-color: #E5E7EB;"
-        "  color: #1F2937;"
+        "  background-color: #F3F4F6 !important;"
+        "  color: #1F2937 !important;"
         "  font-weight: bold;"
-        "  padding: 6px;"
-        "  border: none;"
+        "  padding: 7px;"
+        "  border: 1px solid #E5E7EB;"
         "}"
     );
     leftColumn->addWidget(m_cartTable, 1);
@@ -215,18 +246,18 @@ void CashierOrderView::setupUi() {
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 12px 14px;"
+        "  padding: 14px;"
         "}"
     );
     auto* infoLayout = new QVBoxLayout(infoCard);
-    infoLayout->setContentsMargins(12, 12, 12, 12);
+    infoLayout->setContentsMargins(14, 14, 14, 14);
     infoLayout->setSpacing(6);
 
-    auto* infoTitle = new QLabel("Scanned Product Information", infoCard);
+    auto* infoTitle = new QLabel("Scanned Product Details", infoCard);
     infoTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px;");
     infoLayout->addWidget(infoTitle);
 
-    m_scannedInfoLabel = new QLabel("No product scanned yet.\nEnter a barcode or select a sample item to view details.", infoCard);
+    m_scannedInfoLabel = new QLabel("No product scanned yet.\nScan a barcode or choose a quick select item to view details.", infoCard);
     m_scannedInfoLabel->setStyleSheet("font-size: 12px; color: #4B5563; line-height: 1.4;");
     m_scannedInfoLabel->setWordWrap(true);
     infoLayout->addWidget(m_scannedInfoLabel);
@@ -255,19 +286,19 @@ void CashierOrderView::setupUi() {
 
     auto* subLabel = new QLabel("Subtotal (excl. Tax):", summaryCard);
     subLabel->setStyleSheet("color: #4B5563; font-size: 13px;");
-    m_subtotalLabel = new QLabel("$0.00", summaryCard);
+    m_subtotalLabel = new QLabel("Rs. 0.00", summaryCard);
     m_subtotalLabel->setStyleSheet("color: #1F2937; font-weight: 600; font-size: 13px;");
     m_subtotalLabel->setAlignment(Qt::AlignRight);
 
     auto* discLabel = new QLabel("Total Discount:", summaryCard);
     discLabel->setStyleSheet("color: #4B5563; font-size: 13px;");
-    m_discountLabel = new QLabel("-$0.00", summaryCard);
+    m_discountLabel = new QLabel("-Rs. 0.00", summaryCard);
     m_discountLabel->setStyleSheet("color: #166534; font-weight: 600; font-size: 13px;");
     m_discountLabel->setAlignment(Qt::AlignRight);
 
     auto* taxTitleLabel = new QLabel("Estimated Tax:", summaryCard);
     taxTitleLabel->setStyleSheet("color: #4B5563; font-size: 13px;");
-    m_taxLabel = new QLabel("+$0.00", summaryCard);
+    m_taxLabel = new QLabel("+Rs. 0.00", summaryCard);
     m_taxLabel->setStyleSheet("color: #1F2937; font-weight: 600; font-size: 13px;");
     m_taxLabel->setAlignment(Qt::AlignRight);
 
@@ -288,7 +319,7 @@ void CashierOrderView::setupUi() {
     auto* totalBox = new QHBoxLayout();
     auto* totalText = new QLabel("TOTAL PAYABLE:", summaryCard);
     totalText->setStyleSheet("font-size: 14px; font-weight: bold; color: #1E3A5F;");
-    m_totalPayableLabel = new QLabel("$0.00", summaryCard);
+    m_totalPayableLabel = new QLabel("Rs. 0.00", summaryCard);
     m_totalPayableLabel->setStyleSheet("font-size: 22px; font-weight: bold; color: #1E3A5F;");
     m_totalPayableLabel->setAlignment(Qt::AlignRight);
     totalBox->addWidget(totalText);
@@ -331,7 +362,7 @@ void CashierOrderView::setupUi() {
     connect(generateBillBtn, &QPushButton::clicked, this, &CashierOrderView::onGenerateBillClicked);
     rightColumn->addWidget(generateBillBtn);
 
-    auto* clearBtn = new QPushButton("Clear Current Cart", this);
+    auto* clearBtn = new QPushButton("Clear Cart", this);
     clearBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #FFFFFF;"
@@ -359,7 +390,6 @@ void CashierOrderView::onAddBarcodeClicked() {
 
     std::string stdCode = codeStr.toStdString();
 
-    // Reusing Increment 1 BarcodeGenerator validation logic
     ValidationResult valResult = BarcodeGenerator::validate(stdCode);
     if (!valResult.valid) {
         m_scanStatusLabel->setText(QString("<font color='#DC2626'>Invalid Barcode: %1</font>")
@@ -367,7 +397,6 @@ void CashierOrderView::onAddBarcodeClicked() {
         return;
     }
 
-    // Lookup in Product Service
     ProductInfo prod;
     if (m_productService && m_productService->findProductByBarcode(stdCode, prod)) {
         addProductToOrder(prod, 1);
@@ -377,7 +406,7 @@ void CashierOrderView::onAddBarcodeClicked() {
         setScannedProductFeedback(prod);
         m_barcodeInput->clear();
     } else {
-        m_scanStatusLabel->setText(QString("<font color='#DC2626'>Barcode '%1' is valid Code 39 but not in product catalog.</font>")
+        m_scanStatusLabel->setText(QString("<font color='#DC2626'>Barcode '%1' not found in store database.</font>")
                                    .arg(codeStr));
     }
 }
@@ -390,7 +419,7 @@ void CashierOrderView::onQuickAddSelected(int index) {
         if (m_productService->findProductByBarcode(barcodeStr.toStdString(), prod)) {
             addProductToOrder(prod, 1);
             setScannedProductFeedback(prod);
-            m_scanStatusLabel->setText(QString("<font color='#166534'>Quick-added: %1</font>")
+            m_scanStatusLabel->setText(QString("<font color='#166534'>Item added: %1</font>")
                                        .arg(QString::fromStdString(prod.name)));
         }
     }
@@ -431,8 +460,8 @@ void CashierOrderView::updateCartTable() {
         acrItem->setTextAlignment(Qt::AlignCenter);
         m_cartTable->setItem(i, 1, acrItem);
 
-        // Column 2: Unit Price
-        auto* priceItem = new QTableWidgetItem(QString("$%1").arg(item.product.unitPrice, 0, 'f', 2));
+        // Column 2: Unit Price (Rs.)
+        auto* priceItem = new QTableWidgetItem(QString("Rs. %1").arg(item.product.unitPrice, 0, 'f', 2));
         priceItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         m_cartTable->setItem(i, 2, priceItem);
 
@@ -440,20 +469,27 @@ void CashierOrderView::updateCartTable() {
         auto* qtySpin = new QSpinBox(m_cartTable);
         qtySpin->setRange(1, 999);
         qtySpin->setValue(item.quantity);
-        qtySpin->setStyleSheet("padding: 2px 4px; font-weight: bold; border: 1px solid #D1D5DB; border-radius: 3px;");
+        qtySpin->setStyleSheet(
+            "background-color: #FFFFFF !important;"
+            "color: #111827 !important;"
+            "padding: 2px 4px;"
+            "font-weight: bold;"
+            "border: 1px solid #D1D5DB;"
+            "border-radius: 3px;"
+        );
         connect(qtySpin, QOverload<int>::of(&QSpinBox::valueChanged), [this, i](int val) {
             onQuantityChanged(i, val);
         });
         m_cartTable->setCellWidget(i, 3, qtySpin);
 
-        // Column 4: Discount
-        auto* discItem = new QTableWidgetItem(QString("-$%1").arg(item.getTotalDiscount(), 0, 'f', 2));
+        // Column 4: Discount (Rs.)
+        auto* discItem = new QTableWidgetItem(QString("-Rs. %1").arg(item.getTotalDiscount(), 0, 'f', 2));
         discItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         discItem->setForeground(QBrush(QColor("#166534")));
         m_cartTable->setItem(i, 4, discItem);
 
-        // Column 5: Subtotal
-        auto* subItem = new QTableWidgetItem(QString("$%1").arg(item.getSubtotal(), 0, 'f', 2));
+        // Column 5: Subtotal (Rs.)
+        auto* subItem = new QTableWidgetItem(QString("Rs. %1").arg(item.getSubtotal(), 0, 'f', 2));
         subItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         subItem->setFont(QFont("", -1, QFont::Bold));
         m_cartTable->setItem(i, 5, subItem);
@@ -482,12 +518,11 @@ void CashierOrderView::onQuantityChanged(int row, int newQty) {
     if (row >= 0 && row < static_cast<int>(m_cartItems.size())) {
         m_cartItems[row].quantity = newQty;
         updateSummary();
-        // Update subtotal and discount text without recreating table
         if (m_cartTable->item(row, 4)) {
-            m_cartTable->item(row, 4)->setText(QString("-$%1").arg(m_cartItems[row].getTotalDiscount(), 0, 'f', 2));
+            m_cartTable->item(row, 4)->setText(QString("-Rs. %1").arg(m_cartItems[row].getTotalDiscount(), 0, 'f', 2));
         }
         if (m_cartTable->item(row, 5)) {
-            m_cartTable->item(row, 5)->setText(QString("$%1").arg(m_cartItems[row].getSubtotal(), 0, 'f', 2));
+            m_cartTable->item(row, 5)->setText(QString("Rs. %1").arg(m_cartItems[row].getSubtotal(), 0, 'f', 2));
         }
     }
 }
@@ -514,18 +549,18 @@ void CashierOrderView::updateSummary() {
     double totalPayable = (subtotal - discount) + tax;
     if (totalPayable < 0.0) totalPayable = 0.0;
 
-    m_subtotalLabel->setText(QString("$%1").arg(subtotal, 0, 'f', 2));
-    m_discountLabel->setText(QString("-$%1").arg(discount, 0, 'f', 2));
-    m_taxLabel->setText(QString("+$%1").arg(tax, 0, 'f', 2));
-    m_totalPayableLabel->setText(QString("$%1").arg(totalPayable, 0, 'f', 2));
+    m_subtotalLabel->setText(QString("Rs. %1").arg(subtotal, 0, 'f', 2));
+    m_discountLabel->setText(QString("-Rs. %1").arg(discount, 0, 'f', 2));
+    m_taxLabel->setText(QString("+Rs. %1").arg(tax, 0, 'f', 2));
+    m_totalPayableLabel->setText(QString("Rs. %1").arg(totalPayable, 0, 'f', 2));
 }
 
 void CashierOrderView::setScannedProductFeedback(const ProductInfo& prod) {
     QString infoText = QString(
         "<b>Product:</b> %1<br/>"
         "<b>Acronym:</b> %2 | <b>Barcode:</b> %3<br/>"
-        "<b>Unit Price:</b> $%4 / %5<br/>"
-        "<b>Discount:</b> $%6 | <b>Tax Rate:</b> %7%<br/>"
+        "<b>Unit Price:</b> Rs. %4 / %5<br/>"
+        "<b>Discount:</b> Rs. %6 | <b>Tax Rate:</b> %7%<br/>"
         "<b>In Stock:</b> %8 units"
     ).arg(QString::fromStdString(prod.name))
      .arg(QString::fromStdString(prod.acronym))
@@ -546,7 +581,6 @@ void CashierOrderView::onDescriptionClicked() {
     } else if (!m_cartItems.empty()) {
         emit inspectProductRequested(m_cartItems.back().product.barcode);
     } else {
-        // Default to first catalog product if cart empty
         if (m_productService && !m_productService->getAllProducts().empty()) {
             emit inspectProductRequested(m_productService->getAllProducts().front().barcode);
         } else {
@@ -585,7 +619,7 @@ void CashierOrderView::resetOrder() {
     m_customerContactInput->clear();
     m_barcodeInput->clear();
     m_scanStatusLabel->setText("Ready for next transaction.");
-    m_scannedInfoLabel->setText("No product scanned yet.\nEnter a barcode or select a sample item to view details.");
+    m_scannedInfoLabel->setText("No product scanned yet.\nScan a barcode or choose a quick select item to view details.");
     updateCartTable();
     updateSummary();
 }
@@ -594,25 +628,24 @@ void CashierOrderView::onToggleCameraPlaceholder() {
     if (m_cameraService) {
         if (!m_cameraService->isScanning()) {
             m_cameraService->startCamera();
-            m_cameraStatusLabel->setText("<font color='#166534'><b>[Camera Scanner Active]</b></font> — Live frame preview placeholder running.");
-            m_cameraToggleBtn->setText("Simulate Barcode Capture");
+            m_cameraStatusLabel->setText("<font color='#166534'><b>[Optical Scanner Active]</b></font> — Scanner ready for barcode detection.");
+            m_cameraToggleBtn->setText("Simulate Barcode Detection");
 
-            // Perform scan simulation
             BarcodeScanResult res = m_cameraService->captureAndScan();
             if (res.success && m_productService) {
                 ProductInfo prod;
                 if (m_productService->findProductByBarcode(res.barcode, prod)) {
                     addProductToOrder(prod, 1);
                     setScannedProductFeedback(prod);
-                    m_scanStatusLabel->setText(QString("<font color='#166534'>Camera detected barcode: %1 (%2)</font>")
+                    m_scanStatusLabel->setText(QString("<font color='#166534'>Scanner detected barcode: %1 (%2)</font>")
                                                .arg(QString::fromStdString(res.barcode))
                                                .arg(QString::fromStdString(prod.name)));
                 }
             }
         } else {
             m_cameraService->stopCamera();
-            m_cameraStatusLabel->setText("<b>[Camera Scanner Module Placeholder]</b> — Ready for integration with Eman 2's module");
-            m_cameraToggleBtn->setText("Simulate Camera Scan");
+            m_cameraStatusLabel->setText("<b>[Optical Scanner Active]</b> — Live Barcode Scanner Ready");
+            m_cameraToggleBtn->setText("Simulate Barcode Scan");
         }
     }
 }

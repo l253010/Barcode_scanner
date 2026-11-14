@@ -10,7 +10,7 @@
 // ============================================================================
 
 BarcodeDisplayWidget::BarcodeDisplayWidget(QWidget* parent) : QWidget(parent) {
-    setMinimumHeight(110);
+    setMinimumHeight(115);
     setStyleSheet("background-color: #FFFFFF; border: 1px solid #D1D5DB; border-radius: 4px;");
 }
 
@@ -38,7 +38,6 @@ void BarcodeDisplayWidget::paintEvent(QPaintEvent* /*event*/) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, false);
 
-    // Background
     painter.fillRect(rect(), QColor("#FFFFFF"));
     painter.setPen(QColor("#D1D5DB"));
     painter.drawRect(0, 0, width() - 1, height() - 1);
@@ -46,17 +45,16 @@ void BarcodeDisplayWidget::paintEvent(QPaintEvent* /*event*/) {
     if (!m_hasData || m_elements.empty()) {
         painter.setPen(QColor("#9CA3AF"));
         painter.setFont(QFont("Arial", 11));
-        painter.drawText(rect(), Qt::AlignCenter, "No valid Code 39 barcode to display");
+        painter.drawText(rect(), Qt::AlignCenter, "No barcode data available");
         return;
     }
 
-    // Total width in logical units for a 6-digit Code 39 barcode is 127 units
     int totalUnits = 0;
     for (const auto& elem : m_elements) {
         totalUnits += elem.width;
     }
 
-    int marginX = 20;
+    int marginX = 24;
     int availableWidth = width() - (2 * marginX);
     if (availableWidth < 100) availableWidth = 100;
 
@@ -79,9 +77,9 @@ void BarcodeDisplayWidget::paintEvent(QPaintEvent* /*event*/) {
         currentX += w;
     }
 
-    // Draw barcode human-readable text beneath the bars
+    // Barcode number text
     painter.setPen(QColor("#1F2937"));
-    QFont font("Arial", 11, QFont::Bold);
+    QFont font("Arial", 12, QFont::Bold);
     font.setLetterSpacing(QFont::AbsoluteSpacing, 3);
     painter.setFont(font);
 
@@ -112,7 +110,7 @@ void ProductDescriptionView::setupUi() {
     auto* titleCol = new QVBoxLayout();
     auto* titleLabel = new QLabel("Product Description & Specification", this);
     titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
-    auto* subtitleLabel = new QLabel("Lookup detailed product data, inventory status, and Code 39 barcode pattern", this);
+    auto* subtitleLabel = new QLabel("Lookup detailed product data, inventory stock, and barcode verification", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
     titleCol->addWidget(titleLabel);
     titleCol->addWidget(subtitleLabel);
@@ -148,7 +146,7 @@ void ProductDescriptionView::setupUi() {
         "}"
     );
     auto* lookupLayout = new QVBoxLayout(lookupCard);
-    lookupLayout->setContentsMargins(12, 12, 12, 12);
+    lookupLayout->setContentsMargins(14, 14, 14, 14);
     lookupLayout->setSpacing(10);
 
     auto* lookupRow = new QHBoxLayout();
@@ -159,7 +157,14 @@ void ProductDescriptionView::setupUi() {
 
     m_lookupInput = new QLineEdit(lookupCard);
     m_lookupInput->setPlaceholderText("Enter 6-digit barcode (e.g. 100001)...");
-    m_lookupInput->setStyleSheet("padding: 6px 10px; font-size: 13px; border: 1px solid #D1D5DB; border-radius: 4px;");
+    m_lookupInput->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 7px 12px;"
+        "font-size: 13px;"
+    );
 
     auto* lookupBtn = new QPushButton("Lookup", lookupCard);
     lookupBtn->setStyleSheet(
@@ -167,7 +172,7 @@ void ProductDescriptionView::setupUi() {
         "  background-color: #1E3A5F;"
         "  color: white;"
         "  font-weight: 600;"
-        "  padding: 6px 16px;"
+        "  padding: 7px 18px;"
         "  border-radius: 4px;"
         "  border: none;"
         "}"
@@ -177,10 +182,17 @@ void ProductDescriptionView::setupUi() {
     connect(m_lookupInput, &QLineEdit::returnPressed, this, &ProductDescriptionView::onLookupClicked);
 
     auto* selectLabel = new QLabel("Or Select Product:", lookupCard);
-    selectLabel->setStyleSheet("color: #4B5563; font-weight: 600;");
+    selectLabel->setStyleSheet("color: #4B5563; font-weight: 600; font-size: 13px;");
 
     m_productCombo = new QComboBox(lookupCard);
-    m_productCombo->setStyleSheet("padding: 5px 8px; border: 1px solid #D1D5DB; border-radius: 3px; font-size: 13px;");
+    m_productCombo->setStyleSheet(
+        "background-color: #FFFFFF !important;"
+        "color: #111827 !important;"
+        "border: 1px solid #D1D5DB;"
+        "border-radius: 4px;"
+        "padding: 6px 12px;"
+        "font-size: 13px;"
+    );
     connect(m_productCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ProductDescriptionView::onProductDropdownChanged);
 
@@ -191,7 +203,7 @@ void ProductDescriptionView::setupUi() {
     lookupRow->addWidget(m_productCombo, 3);
     lookupLayout->addLayout(lookupRow);
 
-    m_lookupStatusLabel = new QLabel("Enter or select a product above to inspect full specifications.", lookupCard);
+    m_lookupStatusLabel = new QLabel("Enter or select a product above to inspect complete specifications.", lookupCard);
     m_lookupStatusLabel->setStyleSheet("font-size: 12px; color: #6B7280;");
     lookupLayout->addWidget(m_lookupStatusLabel);
 
@@ -204,41 +216,45 @@ void ProductDescriptionView::setupUi() {
         "  background-color: #FFFFFF;"
         "  border: 1px solid #D1D5DB;"
         "  border-radius: 4px;"
-        "  padding: 20px;"
+        "  padding: 22px;"
         "}"
     );
     auto* detailLayout = new QVBoxLayout(detailCard);
-    detailLayout->setContentsMargins(20, 20, 20, 20);
+    detailLayout->setContentsMargins(22, 20, 22, 20);
     detailLayout->setSpacing(16);
 
     auto* grid = new QGridLayout();
     grid->setHorizontalSpacing(24);
-    grid->setVerticalSpacing(12);
+    grid->setVerticalSpacing(14);
+    grid->setColumnStretch(1, 1);
+    grid->setColumnStretch(3, 1);
 
     auto makeField = [this, grid](const QString& title, QLabel*& valLabel, int row, int col) {
         auto* tLabel = new QLabel(title, this);
+        tLabel->setMinimumWidth(160);
         tLabel->setStyleSheet("font-weight: 600; color: #4B5563; font-size: 13px;");
         valLabel = new QLabel("-", this);
         valLabel->setStyleSheet("font-size: 14px; color: #1F2937; font-weight: 500;");
+        valLabel->setWordWrap(true);
         grid->addWidget(tLabel, row, col * 2);
         grid->addWidget(valLabel, row, col * 2 + 1);
     };
 
-    makeField("Product ID:",          m_idLabel,       0, 0);
-    makeField("Product Barcode:",     m_barcodeLabel,  0, 1);
-    makeField("Product Acronym:",     m_acronymLabel,  1, 0);
-    makeField("Product Name:",        m_nameLabel,     1, 1);
-    makeField("Measurement Unit:",    m_unitLabel,     2, 0);
-    makeField("Unit Price ($):",      m_priceLabel,    2, 1);
-    makeField("Tax Rate (%):",        m_taxLabel,      3, 0);
-    makeField("Discount / Unit ($):", m_discountLabel, 3, 1);
-    makeField("Available Stock:",     m_stockLabel,    4, 0);
+    makeField("Product ID:",           m_idLabel,       0, 0);
+    makeField("Product Barcode:",      m_barcodeLabel,  0, 1);
+    makeField("Product Acronym:",      m_acronymLabel,  1, 0);
+    makeField("Product Name:",         m_nameLabel,     1, 1);
+    makeField("Measurement Unit:",     m_unitLabel,     2, 0);
+    makeField("Unit Price (Rs.):",     m_priceLabel,    2, 1);
+    makeField("Tax Rate (%):",         m_taxLabel,      3, 0);
+    makeField("Discount / Unit (Rs.):", m_discountLabel, 3, 1);
+    makeField("Available Stock:",      m_stockLabel,    4, 0);
 
     detailLayout->addLayout(grid);
 
-    // Visual Code 39 Barcode section
-    auto* barcodeSectionTitle = new QLabel("Visual Code 39 Barcode Rendering (Increment 1 Engine):", detailCard);
-    barcodeSectionTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px; margin-top: 10px;");
+    // Barcode Verification Section
+    auto* barcodeSectionTitle = new QLabel("Product Barcode Verification:", detailCard);
+    barcodeSectionTitle->setStyleSheet("font-weight: bold; color: #1E3A5F; font-size: 13px; margin-top: 8px;");
     detailLayout->addWidget(barcodeSectionTitle);
 
     m_barcodeWidget = new BarcodeDisplayWidget(detailCard);
@@ -252,7 +268,7 @@ void ProductDescriptionView::setupUi() {
         "  color: #FFFFFF;"
         "  font-weight: bold;"
         "  font-size: 13px;"
-        "  padding: 10px 18px;"
+        "  padding: 10px 20px;"
         "  border-radius: 4px;"
         "  border: none;"
         "}"
@@ -301,7 +317,7 @@ void ProductDescriptionView::displayProduct(const std::string& barcode) {
 
     ValidationResult val = BarcodeGenerator::validate(barcode);
     if (!val.valid) {
-        m_lookupStatusLabel->setText(QString("<font color='#DC2626'>Invalid Code 39 format: %1</font>")
+        m_lookupStatusLabel->setText(QString("<font color='#DC2626'>Invalid barcode format: %1</font>")
                                      .arg(QString::fromStdString(val.message)));
         return;
     }
@@ -324,10 +340,10 @@ void ProductDescriptionView::updateFields(const ProductInfo& prod) {
     m_acronymLabel->setText(QString::fromStdString(prod.acronym));
     m_nameLabel->setText(QString("<b>%1</b>").arg(QString::fromStdString(prod.name)));
     m_unitLabel->setText(QString::fromStdString(prod.unit));
-    m_priceLabel->setText(QString("$%1").arg(prod.unitPrice, 0, 'f', 2));
+    m_priceLabel->setText(QString("Rs. %1").arg(prod.unitPrice, 0, 'f', 2));
     m_taxLabel->setText(QString("%1%").arg(prod.taxRate * 100.0, 0, 'f', 1));
-    m_discountLabel->setText(QString("$%1").arg(prod.discountPerUnit, 0, 'f', 2));
-    m_stockLabel->setText(QString("<b>%1</b> %2(s) available in store")
+    m_discountLabel->setText(QString("Rs. %1").arg(prod.discountPerUnit, 0, 'f', 2));
+    m_stockLabel->setText(QString("<b>%1</b> %2(s) in stock")
                           .arg(prod.availableQuantity)
                           .arg(QString::fromStdString(prod.unit)));
 

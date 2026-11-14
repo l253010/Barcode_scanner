@@ -18,9 +18,9 @@ void BillPreviewView::setupUi() {
     // Title and Top Actions
     auto* topLayout = new QHBoxLayout();
     auto* titleCol = new QVBoxLayout();
-    auto* titleLabel = new QLabel("Bill / Invoice Preview", this);
+    auto* titleLabel = new QLabel("Customer Invoice Preview", this);
     titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
-    auto* subtitleLabel = new QLabel("Official Retail Transaction Summary & Customer Invoice", this);
+    auto* subtitleLabel = new QLabel("Official Retail Sales Receipt & Transaction Summary", this);
     subtitleLabel->setStyleSheet("font-size: 13px; color: #4B5563;");
     titleCol->addWidget(titleLabel);
     titleCol->addWidget(subtitleLabel);
@@ -45,7 +45,7 @@ void BillPreviewView::setupUi() {
     topLayout->addWidget(backBtn);
     mainLayout->addLayout(topLayout);
 
-    // Receipt Container Frame (Clean Paper Style)
+    // Receipt Container Frame
     auto* invoiceFrame = new QFrame(this);
     invoiceFrame->setStyleSheet(
         "QFrame {"
@@ -63,9 +63,9 @@ void BillPreviewView::setupUi() {
     auto* headerBar = new QHBoxLayout();
 
     auto* brandCol = new QVBoxLayout();
-    auto* brandName = new QLabel("SUPERMARKET POS RETAIL TERMINAL", invoiceFrame);
-    brandName->setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F;");
-    auto* storeInfo = new QLabel("Terminal #01 | Store Location: Central Branch", invoiceFrame);
+    auto* brandName = new QLabel("RETAIL POS SUPERMARKET", invoiceFrame);
+    brandName->setStyleSheet("font-size: 16px; font-weight: bold; color: #1E3A5F; letter-spacing: 0.5px;");
+    auto* storeInfo = new QLabel("Store: Central Branch | Cash Register #01", invoiceFrame);
     storeInfo->setStyleSheet("font-size: 12px; color: #6B7280;");
     brandCol->addWidget(brandName);
     brandCol->addWidget(storeInfo);
@@ -94,8 +94,8 @@ void BillPreviewView::setupUi() {
 
     // Customer & Order Metadata Grid
     auto* metaGrid = new QGridLayout();
-    metaGrid->setHorizontalSpacing(24);
-    metaGrid->setVerticalSpacing(8);
+    metaGrid->setHorizontalSpacing(28);
+    metaGrid->setVerticalSpacing(10);
 
     auto addMeta = [this, metaGrid](const QString& title, QLabel*& valLabel, int r, int c) {
         auto* t = new QLabel(title, this);
@@ -110,14 +110,14 @@ void BillPreviewView::setupUi() {
     addMeta("Order ID:",         m_orderIdLabel,         0, 1);
     addMeta("Customer Name:",    m_customerNameLabel,    1, 0);
     addMeta("Customer Contact:", m_customerContactLabel, 1, 1);
-    addMeta("Timestamp:",        m_timestampLabel,       2, 0);
+    addMeta("Date & Time:",      m_timestampLabel,       2, 0);
 
     invoiceLayout->addLayout(metaGrid);
 
     // Items Table
     m_itemsTable = new QTableWidget(invoiceFrame);
     m_itemsTable->setColumnCount(6);
-    QStringList headers = {"Product Acronym", "Product Name", "Unit Price", "Discount / Unit", "Quantity", "Subtotal"};
+    QStringList headers = {"Product Acronym", "Product Name", "Unit Price (Rs.)", "Discount (Rs.)", "Quantity", "Subtotal (Rs.)"};
     m_itemsTable->setHorizontalHeaderLabels(headers);
     m_itemsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_itemsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -130,17 +130,18 @@ void BillPreviewView::setupUi() {
     m_itemsTable->setAlternatingRowColors(true);
     m_itemsTable->setStyleSheet(
         "QTableWidget {"
-        "  background-color: #FFFFFF;"
+        "  background-color: #FFFFFF !important;"
+        "  color: #111827 !important;"
         "  border: 1px solid #D1D5DB;"
         "  gridline-color: #E5E7EB;"
         "  font-size: 13px;"
         "}"
         "QHeaderView::section {"
-        "  background-color: #E5E7EB;"
-        "  color: #1F2937;"
+        "  background-color: #F3F4F6 !important;"
+        "  color: #1F2937 !important;"
         "  font-weight: bold;"
-        "  padding: 6px;"
-        "  border: none;"
+        "  padding: 7px;"
+        "  border: 1px solid #E5E7EB;"
         "}"
     );
     invoiceLayout->addWidget(m_itemsTable, 1);
@@ -150,30 +151,30 @@ void BillPreviewView::setupUi() {
     totalsBox->addStretch();
 
     auto* totalsGrid = new QGridLayout();
-    totalsGrid->setHorizontalSpacing(20);
-    totalsGrid->setVerticalSpacing(6);
+    totalsGrid->setHorizontalSpacing(24);
+    totalsGrid->setVerticalSpacing(8);
 
     auto* subTitle = new QLabel("Total (Without Tax):", invoiceFrame);
     subTitle->setStyleSheet("font-size: 13px; color: #4B5563;");
-    m_subtotalLabel = new QLabel("$0.00", invoiceFrame);
+    m_subtotalLabel = new QLabel("Rs. 0.00", invoiceFrame);
     m_subtotalLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #1F2937;");
     m_subtotalLabel->setAlignment(Qt::AlignRight);
 
     auto* discTitle = new QLabel("Total Discount:", invoiceFrame);
     discTitle->setStyleSheet("font-size: 13px; color: #4B5563;");
-    m_discountLabel = new QLabel("-$0.00", invoiceFrame);
+    m_discountLabel = new QLabel("-Rs. 0.00", invoiceFrame);
     m_discountLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #166534;");
     m_discountLabel->setAlignment(Qt::AlignRight);
 
     auto* taxTitle = new QLabel("Total Tax:", invoiceFrame);
     taxTitle->setStyleSheet("font-size: 13px; color: #4B5563;");
-    m_taxLabel = new QLabel("+$0.00", invoiceFrame);
+    m_taxLabel = new QLabel("+Rs. 0.00", invoiceFrame);
     m_taxLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #1F2937;");
     m_taxLabel->setAlignment(Qt::AlignRight);
 
     auto* totTitle = new QLabel("TOTAL PAYABLE:", invoiceFrame);
     totTitle->setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F;");
-    m_totalPayableLabel = new QLabel("$0.00", invoiceFrame);
+    m_totalPayableLabel = new QLabel("Rs. 0.00", invoiceFrame);
     m_totalPayableLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F;");
     m_totalPayableLabel->setAlignment(Qt::AlignRight);
 
@@ -194,7 +195,7 @@ void BillPreviewView::setupUi() {
     // Bottom Action Buttons
     auto* bottomActions = new QHBoxLayout();
 
-    auto* printBtn = new QPushButton("Save Order to Storage", this);
+    auto* printBtn = new QPushButton("Save Order to Records", this);
     printBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #FFFFFF;"
@@ -280,17 +281,17 @@ void BillPreviewView::populateBillData() {
 
         auto* name = new QTableWidgetItem(QString::fromStdString(item.product.name));
 
-        auto* price = new QTableWidgetItem(QString("$%1").arg(item.product.unitPrice, 0, 'f', 2));
+        auto* price = new QTableWidgetItem(QString("Rs. %1").arg(item.product.unitPrice, 0, 'f', 2));
         price->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-        auto* disc = new QTableWidgetItem(QString("-$%1").arg(item.product.discountPerUnit, 0, 'f', 2));
+        auto* disc = new QTableWidgetItem(QString("-Rs. %1").arg(item.product.discountPerUnit, 0, 'f', 2));
         disc->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         disc->setForeground(QBrush(QColor("#166534")));
 
         auto* qty = new QTableWidgetItem(QString::number(item.quantity));
         qty->setTextAlignment(Qt::AlignCenter);
 
-        auto* sub = new QTableWidgetItem(QString("$%1").arg(item.getSubtotal(), 0, 'f', 2));
+        auto* sub = new QTableWidgetItem(QString("Rs. %1").arg(item.getSubtotal(), 0, 'f', 2));
         sub->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         sub->setFont(QFont("", -1, QFont::Bold));
 
@@ -302,10 +303,10 @@ void BillPreviewView::populateBillData() {
         m_itemsTable->setItem(i, 5, sub);
     }
 
-    m_subtotalLabel->setText(QString("$%1").arg(m_currentBill.totalWithoutTax, 0, 'f', 2));
-    m_discountLabel->setText(QString("-$%1").arg(m_currentBill.totalDiscount, 0, 'f', 2));
-    m_taxLabel->setText(QString("+$%1").arg(m_currentBill.totalTax, 0, 'f', 2));
-    m_totalPayableLabel->setText(QString("$%1").arg(m_currentBill.totalPayable, 0, 'f', 2));
+    m_subtotalLabel->setText(QString("Rs. %1").arg(m_currentBill.totalWithoutTax, 0, 'f', 2));
+    m_discountLabel->setText(QString("-Rs. %1").arg(m_currentBill.totalDiscount, 0, 'f', 2));
+    m_taxLabel->setText(QString("+Rs. %1").arg(m_currentBill.totalTax, 0, 'f', 2));
+    m_totalPayableLabel->setText(QString("Rs. %1").arg(m_currentBill.totalPayable, 0, 'f', 2));
 }
 
 void BillPreviewView::onProceedToPaymentClicked() {
@@ -316,7 +317,7 @@ void BillPreviewView::onPrintOrSaveClicked() {
     if (m_storageService) {
         m_storageService->saveBill(m_currentBill);
         QMessageBox::information(this, "Order Saved",
-                                 QString("Order record '%1' (Bill: %2) saved to storage service.")
+                                 QString("Order record '%1' (Bill: %2) saved to store records.")
                                  .arg(QString::fromStdString(m_currentBill.orderId))
                                  .arg(QString::fromStdString(m_currentBill.billId)));
     }
