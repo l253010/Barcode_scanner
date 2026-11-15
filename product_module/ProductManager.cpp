@@ -75,18 +75,18 @@ bool ProductManager::loadFromFile(const std::string& filePath, std::string* stat
         lineNumber++;
         std::string trimmedLine = trim(line);
 
-        // Skip empty lines and comment lines
-        if (trimmedLine.empty() || trimmedLine[0] == '#') {
+        // Skip empty lines
+        if (trimmedLine.empty()) {
             continue;
         }
 
-        // Skip potential header rows
-        if (trimmedLine.rfind("Barcode", 0) == 0 || trimmedLine.rfind("barcode", 0) == 0) {
+        // Skip comments that start with '#' without '#' end marker, or start with '//'
+        if ((trimmedLine[0] == '#' && trimmedLine.back() != '#') || trimmedLine.rfind("//", 0) == 0) {
             continue;
         }
 
         std::string parseError;
-        Product p = Product::fromDelimitedString(trimmedLine, '|', &parseError);
+        Product p = Product::fromDelimitedString(trimmedLine, ' ', &parseError);
         if (p.isValid()) {
             int existingIdx = findIndexByBarcode(p.getBarcode());
             if (existingIdx >= 0) {
@@ -131,12 +131,9 @@ bool ProductManager::saveToFile(const std::string& filePath, std::string* status
         return false;
     }
 
-    // Write standard header
-    outFile << "# Barcode|ProductID|Name|Category|Price|Stock|TaxRate|Description\n";
-
-    // Write products in insertion order
+    // Write products in the required specification format (one product per row, ending with #)
     for (size_t i = 0; i < m_products.size(); ++i) {
-        outFile << m_products[i].toDelimitedString('|') << "\n";
+        outFile << m_products[i].toFileRecord() << "\n";
     }
 
     outFile.close();

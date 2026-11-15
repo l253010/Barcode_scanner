@@ -47,27 +47,27 @@ bool ProductBillingService::loadCatalog(const std::string& filePath) {
 
 void ProductBillingService::initFallbackCatalog() {
     m_productManager.clear();
-    // Default supermarket items ensuring POS always operates
+    // Default supermarket items conforming to the 10-field space-delimited specification
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "100001", "PRD-101", "Organic Whole Milk 1L", "Fresh pasteurized whole dairy milk", "Dairy", 3.49, 50, 5.0));
+        "PRD-101", "100001", "MILK-1L", "Organic Whole Milk 1L", "count", 3.49, 0.175, 0.00, 50, "barcodes/barcode_100001.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "100002", "PRD-102", "Whole Grain Wheat Bread", "Nutritious sliced whole wheat bread", "Bakery", 2.89, 40, 0.0));
+        "PRD-102", "100002", "BREAD-W", "Whole Grain Wheat Bread", "count", 2.89, 0.00, 0.00, 40, "barcodes/barcode_100002.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "100003", "PRD-103", "Farm Fresh Large Eggs 12pk", "Grade A brown free-range eggs", "Dairy", 4.25, 30, 5.0));
+        "PRD-103", "100003", "EGGS-12", "Farm Fresh Large Eggs 12pk", "count", 4.25, 0.2125, 0.00, 30, "barcodes/barcode_100003.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "123456", "PRD-104", "Arabica Dark Roast Coffee 250g", "Premium ground dark roast coffee beans", "Beverages", 7.99, 25, 8.0));
+        "PRD-104", "123456", "COF-250", "Arabica Dark Roast Coffee 250g", "weight", 7.99, 0.6392, 0.00, 25, "barcodes/barcode_123456.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "200001", "PRD-105", "Natural Spring Water 500ml", "Pure bottled mineral spring water", "Beverages", 1.20, 100, 0.0));
+        "PRD-105", "200001", "WAT-500", "Natural Spring Water 500ml", "count", 1.20, 0.00, 0.00, 100, "barcodes/barcode_200001.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "200002", "PRD-106", "Crunchy Peanut Butter 500g", "All-natural roasted peanut butter", "Pantry", 4.50, 20, 5.0));
+        "PRD-106", "200002", "PB-500G", "Crunchy Peanut Butter 500g", "count", 4.50, 0.225, 0.00, 20, "barcodes/barcode_200002.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "300001", "PRD-107", "Dark Chocolate Bar 100g", "70 percent cocoa rich dark chocolate", "Confectionery", 2.50, 60, 8.0));
+        "PRD-107", "300001", "CHOC-100", "Dark Chocolate Bar 100g", "count", 2.50, 0.20, 0.00, 60, "barcodes/barcode_300001.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "300002", "PRD-108", "Extra Virgin Olive Oil 750ml", "Cold pressed Mediterranean olive oil", "Pantry", 11.99, 15, 5.0));
+        "PRD-108", "300002", "OIL-750", "Extra Virgin Olive Oil 750ml", "count", 11.99, 0.5995, 0.00, 15, "barcodes/barcode_300002.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "400001", "PRD-109", "Basmati Long Grain Rice 2kg", "Aromatic Himalayan aged basmati rice", "Pantry", 8.75, 35, 0.0));
+        "PRD-109", "400001", "RICE-2K", "Basmati Long Grain Rice 2kg", "weight", 8.75, 0.00, 0.00, 35, "barcodes/barcode_400001.png"));
     m_productManager.addOrUpdateProduct(ProductBilling::Product(
-        "500001", "PRD-110", "Sparkling Lemonade 330ml", "Refreshing carbonated real lemon beverage", "Beverages", 1.75, 8, 8.0));
+        "PRD-110", "500001", "LEMON-33", "Sparkling Lemonade 330ml", "count", 1.75, 0.14, 0.00, 8, "barcodes/barcode_500001.png"));
 }
 
 int ProductBillingService::extractNumericId(const std::string& productIdStr) {
@@ -84,39 +84,33 @@ ProductInfo ProductBillingService::toProductInfo(const ProductBilling::Product& 
     ProductInfo info;
     info.id = extractNumericId(product.getProductId());
     info.barcode = product.getBarcode();
-    info.acronym = product.getProductId();
+    info.acronym = product.getAcronym();
     info.name = product.getName();
-    info.category = product.getCategory();
-
-    // Map units based on category
-    if (info.category == "Dairy" || info.category == "Beverages") {
-        info.unit = "Bottle";
-    } else if (info.category == "Bakery") {
-        info.unit = "Loaf";
-    } else if (info.category == "Pantry") {
-        info.unit = "Pack";
-    } else {
-        info.unit = "Unit";
-    }
-
+    info.category = product.getCategory().empty() ? (product.getMeasurementUnit() == "weight" ? "Bulk & Staples" : "Packaged Goods") : product.getCategory();
+    info.unit = product.getMeasurementUnit();
     info.unitPrice = product.getPrice();
     info.taxRate = product.getTaxRateFraction(); // e.g. 0.05 for 5%
-    info.discountPerUnit = 0.0;
+    info.discountPerUnit = product.getDiscountPerUnit();
     info.availableQuantity = product.getAvailableStock();
     return info;
 }
 
 ProductBilling::Product ProductBillingService::toProduct(const ProductInfo& info) {
     std::string pid = info.acronym.empty() ? ("PRD-" + std::to_string(info.id)) : info.acronym;
+    std::string path = "barcodes/barcode_" + info.barcode + ".png";
     return ProductBilling::Product(
-        info.barcode,
         pid,
+        info.barcode,
+        info.acronym,
         info.name,
-        info.name,
-        info.category,
+        info.unit.empty() ? "count" : info.unit,
         info.unitPrice,
+        info.unitPrice * info.taxRate,
+        info.discountPerUnit,
         info.availableQuantity,
-        info.taxRate * 100.0 // percentage e.g. 5.0
+        path,
+        info.category,
+        info.name
     );
 }
 

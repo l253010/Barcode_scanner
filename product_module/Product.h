@@ -4,8 +4,10 @@
 // Product Specification and Representation
 // Part of the Product Management and Billing Calculation Module.
 //
-// Encapsulates individual product attributes, validation, stock checks,
-// and formatted GUI-ready string generation.
+// Compliant with assignment specification:
+// Fields: Product ID, Barcode, Acronym (max 8), Name, Measurement Unit,
+//         Unit Price, Tax Amount (PKR), Discount per Unit, Available Qty,
+//         Barcode file path, terminated by '#'.
 // ----------------------------------------------------------------------------
 
 #include <string>
@@ -17,19 +19,39 @@ namespace ProductBilling {
  */
 class Product {
 private:
-    std::string m_barcode;        // Unique barcode string (e.g., 6-digit Code 39)
-    std::string m_productId;      // SKU or Product ID (e.g., "PRD-101")
-    std::string m_name;           // Product display name
-    std::string m_description;    // Detailed description
-    std::string m_category;       // Product category (e.g., "Dairy", "Beverages")
-    double      m_price;          // Unit price (currency)
-    int         m_availableStock; // Current available units in inventory
-    double      m_taxRate;        // Tax rate percentage (e.g., 5.0 for 5%)
+    std::string m_productId;       // 1. Unique product ID (e.g., "PRD-101")
+    std::string m_barcode;         // 2. 6-digit Code 39 barcode (e.g., "100001")
+    std::string m_acronym;         // 3. Short acronym (max 8 characters, e.g., "MILK-1L")
+    std::string m_name;            // 4. Product display name (e.g., "Organic Whole Milk 1L")
+    std::string m_measurementUnit; // 5. Measurement unit ("count", "weight")
+    double      m_price;           // 6. Unit price
+    double      m_taxAmount;       // 7. Tax on product (amount in PKR)
+    double      m_discountPerUnit; // 8. Discount on one unit of product (PKR)
+    int         m_availableStock;  // 9. Available quantity in stock
+    std::string m_barcodeFilePath; // 10. Barcode image file name and path
+
+    // Retained for POS GUI compatibility
+    std::string m_category;
+    std::string m_description;
 
 public:
     // ---- Constructors ----
     Product();
 
+    Product(const std::string& productId,
+            const std::string& barcode,
+            const std::string& acronym,
+            const std::string& name,
+            const std::string& measurementUnit,
+            double price,
+            double taxAmount,
+            double discountPerUnit,
+            int availableStock,
+            const std::string& barcodeFilePath,
+            const std::string& category = "",
+            const std::string& description = "");
+
+    // Backward-compatible constructor
     Product(const std::string& barcode,
             const std::string& productId,
             const std::string& name,
@@ -40,80 +62,55 @@ public:
             double taxRate);
 
     // ---- Getters ----
-    const std::string& getBarcode() const;
     const std::string& getProductId() const;
+    const std::string& getBarcode() const;
+    const std::string& getAcronym() const;
     const std::string& getName() const;
-    const std::string& getDescription() const;
-    const std::string& getCategory() const;
+    const std::string& getMeasurementUnit() const;
     double             getPrice() const;
+    double             getTaxAmount() const;       // Amount in PKR
+    double             getDiscountPerUnit() const; // Discount on one unit in PKR
     int                getAvailableStock() const;
-    double             getTaxRate() const;             // As percentage, e.g. 5.0
-    double             getTaxRateFraction() const;     // As fraction, e.g. 0.05
+    const std::string& getBarcodeFilePath() const;
+    const std::string& getCategory() const;
+    const std::string& getDescription() const;
+
+    // Derived compatibility getters
+    double getTaxRate() const;             // As percentage, e.g. 5.0 for 5%
+    double getTaxRateFraction() const;     // As fraction, e.g. 0.05 for 5%
 
     // ---- Setters ----
-    void setBarcode(const std::string& barcode);
     void setProductId(const std::string& productId);
+    void setBarcode(const std::string& barcode);
+    void setAcronym(const std::string& acronym);
     void setName(const std::string& name);
-    void setDescription(const std::string& description);
-    void setCategory(const std::string& category);
+    void setMeasurementUnit(const std::string& unit);
     void setPrice(double price);
+    void setTaxAmount(double taxAmount);
+    void setDiscountPerUnit(double discount);
     void setAvailableStock(int stock);
-    void setTaxRate(double taxRate);
+    void setBarcodeFilePath(const std::string& path);
+    void setCategory(const std::string& category);
+    void setDescription(const std::string& description);
+    void setTaxRate(double taxRate);       // Sets percentage and recalculates taxAmount
 
     // ---- Stock Operations ----
-    /**
-     * @brief Checks if the requested quantity can be fulfilled from current stock.
-     * @param quantity Number of items requested (must be > 0).
-     * @return true if quantity > 0 and <= availableStock, false otherwise.
-     */
     bool hasSufficientStock(int quantity) const;
-
-    /**
-     * @brief Deducts requested quantity from available stock if sufficient.
-     * @param quantity Number of units to deduct (> 0 and <= availableStock).
-     * @return true if stock was successfully reduced, false otherwise.
-     */
     bool deductStock(int quantity);
-
-    /**
-     * @brief Restocks inventory by adding quantity to available stock.
-     * @param quantity Number of units to add (> 0).
-     * @return true if stock was added, false if quantity <= 0.
-     */
     bool restock(int quantity);
 
     // ---- Validation ----
-    /**
-     * @brief Checks whether this product has valid core specifications.
-     */
     bool isValid() const;
 
-    // ---- GUI-Ready Formatting ----
-    /**
-     * @brief Generates a multi-line formatted summary suitable for GUI labels or detail panels.
-     */
+    // ---- Formatting & Serialization ----
     std::string getFormattedDetails() const;
-
-    /**
-     * @brief Generates a single-line tabulated string suitable for list controls.
-     */
     std::string toTableRow() const;
-
-    /**
-     * @brief Serializes the product into a delimited record (e.g. for Product.txt).
-     */
-    std::string toDelimitedString(char delimiter = '|') const;
+    std::string toFileRecord() const;
+    std::string toDelimitedString(char delimiter = ' ') const;
 
     // ---- Static Parser ----
-    /**
-     * @brief Parses a delimited line into a Product object.
-     * @param line Text line from Product.txt.
-     * @param delimiter Separator character ('|' or ',').
-     * @param errorMsg Optional pointer to receive error description on failure.
-     * @return Product instance (check isValid() on returned object).
-     */
     static Product fromDelimitedString(const std::string& line,
-                                       char delimiter = '|',
+                                       char delimiter = ' ',
                                        std::string* errorMsg = nullptr);
 };
 

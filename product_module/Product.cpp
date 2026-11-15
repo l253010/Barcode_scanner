@@ -11,12 +11,10 @@
 namespace ProductBilling {
 
 namespace {
-    // Manual character whitespace check without <cctype>
     bool isWhitespaceChar(char c) {
         return c == ' ' || c == '\t' || c == '\r' || c == '\n';
     }
 
-    // Manual string trimming without <cctype>
     std::string trim(const std::string& str) {
         if (str.empty()) return "";
         size_t first = 0;
@@ -32,7 +30,6 @@ namespace {
         return str.substr(first, (last - first + 1));
     }
 
-    // Formats a double to fixed decimal representation without <sstream>
     std::string formatDouble(double value, int decimals = 2) {
         if (std::isnan(value)) return "0.00";
         if (value < 0.0) return "-" + formatDouble(-value, decimals);
@@ -57,19 +54,16 @@ namespace {
         return std::to_string(whole) + "." + fracStr;
     }
 
-    // Right-pads a string with padChar up to width
     std::string padRight(const std::string& str, size_t width, char padChar = ' ') {
         if (str.length() >= width) return str;
         return str + std::string(width - str.length(), padChar);
     }
 
-    // Left-pads a string with padChar up to width
     std::string padLeft(const std::string& str, size_t width, char padChar = ' ') {
         if (str.length() >= width) return str;
         return std::string(width - str.length(), padChar) + str;
     }
 
-    // String splitting using DynamicArray and basic string find without <sstream> or <vector>
     DynamicArray<std::string> splitString(const std::string& str, char delimiter) {
         DynamicArray<std::string> tokens;
         size_t start = 0;
@@ -85,17 +79,49 @@ namespace {
 }
 
 Product::Product()
-    : m_barcode("")
-    , m_productId("")
+    : m_productId("")
+    , m_barcode("")
+    , m_acronym("")
     , m_name("")
-    , m_description("")
-    , m_category("")
+    , m_measurementUnit("count")
     , m_price(0.0)
+    , m_taxAmount(0.0)
+    , m_discountPerUnit(0.0)
     , m_availableStock(0)
-    , m_taxRate(0.0)
+    , m_barcodeFilePath("")
+    , m_category("")
+    , m_description("")
 {
 }
 
+Product::Product(const std::string& productId,
+                 const std::string& barcode,
+                 const std::string& acronym,
+                 const std::string& name,
+                 const std::string& measurementUnit,
+                 double price,
+                 double taxAmount,
+                 double discountPerUnit,
+                 int availableStock,
+                 const std::string& barcodeFilePath,
+                 const std::string& category,
+                 const std::string& description)
+    : m_productId(productId)
+    , m_barcode(barcode)
+    , m_acronym(acronym.length() <= 8 ? acronym : acronym.substr(0, 8))
+    , m_name(name)
+    , m_measurementUnit(measurementUnit.empty() ? "count" : measurementUnit)
+    , m_price(price >= 0.0 ? price : 0.0)
+    , m_taxAmount(taxAmount >= 0.0 ? taxAmount : 0.0)
+    , m_discountPerUnit(discountPerUnit >= 0.0 ? discountPerUnit : 0.0)
+    , m_availableStock(availableStock >= 0 ? availableStock : 0)
+    , m_barcodeFilePath(barcodeFilePath)
+    , m_category(category)
+    , m_description(description.empty() ? name : description)
+{
+}
+
+// Backward-compatible constructor
 Product::Product(const std::string& barcode,
                  const std::string& productId,
                  const std::string& name,
@@ -104,44 +130,66 @@ Product::Product(const std::string& barcode,
                  double price,
                  int availableStock,
                  double taxRate)
-    : m_barcode(trim(barcode))
-    , m_productId(trim(productId))
-    , m_name(trim(name))
-    , m_description(trim(description))
-    , m_category(trim(category))
+    : m_productId(productId)
+    , m_barcode(barcode)
+    , m_acronym(productId.length() <= 8 ? productId : productId.substr(0, 8))
+    , m_name(name)
+    , m_measurementUnit((category == "Bakery" || category == "Pantry") ? "weight" : "count")
     , m_price(price >= 0.0 ? price : 0.0)
+    , m_taxAmount(price * (taxRate >= 0.0 ? taxRate / 100.0 : 0.0))
+    , m_discountPerUnit(0.0)
     , m_availableStock(availableStock >= 0 ? availableStock : 0)
-    , m_taxRate(taxRate >= 0.0 ? taxRate : 0.0)
+    , m_barcodeFilePath("barcodes/barcode_" + barcode + ".png")
+    , m_category(category)
+    , m_description(description.empty() ? name : description)
 {
 }
 
 // Getters
-const std::string& Product::getBarcode() const        { return m_barcode; }
-const std::string& Product::getProductId() const      { return m_productId; }
-const std::string& Product::getName() const           { return m_name; }
-const std::string& Product::getDescription() const    { return m_description; }
-const std::string& Product::getCategory() const       { return m_category; }
-double             Product::getPrice() const          { return m_price; }
-int                Product::getAvailableStock() const { return m_availableStock; }
-double             Product::getTaxRate() const        { return m_taxRate; }
-double             Product::getTaxRateFraction() const { return m_taxRate / 100.0; }
+const std::string& Product::getProductId() const       { return m_productId; }
+const std::string& Product::getBarcode() const         { return m_barcode; }
+const std::string& Product::getAcronym() const         { return m_acronym; }
+const std::string& Product::getName() const            { return m_name; }
+const std::string& Product::getMeasurementUnit() const { return m_measurementUnit; }
+double             Product::getPrice() const           { return m_price; }
+double             Product::getTaxAmount() const       { return m_taxAmount; }
+double             Product::getDiscountPerUnit() const { return m_discountPerUnit; }
+int                Product::getAvailableStock() const  { return m_availableStock; }
+const std::string& Product::getBarcodeFilePath() const { return m_barcodeFilePath; }
+const std::string& Product::getCategory() const        { return m_category; }
+const std::string& Product::getDescription() const     { return m_description; }
+
+double Product::getTaxRate() const {
+    if (m_price <= 0.0) return 0.0;
+    return (m_taxAmount / m_price) * 100.0;
+}
+
+double Product::getTaxRateFraction() const {
+    if (m_price <= 0.0) return 0.0;
+    return (m_taxAmount / m_price);
+}
 
 // Setters
-void Product::setBarcode(const std::string& barcode)        { m_barcode = trim(barcode); }
-void Product::setProductId(const std::string& productId)    { m_productId = trim(productId); }
-void Product::setName(const std::string& name)              { m_name = trim(name); }
-void Product::setDescription(const std::string& description){ m_description = trim(description); }
-void Product::setCategory(const std::string& category)      { m_category = trim(category); }
-void Product::setPrice(double price)                        { m_price = (price >= 0.0 ? price : 0.0); }
-void Product::setAvailableStock(int stock)                  { m_availableStock = (stock >= 0 ? stock : 0); }
-void Product::setTaxRate(double taxRate)                    { m_taxRate = (taxRate >= 0.0 ? taxRate : 0.0); }
+void Product::setProductId(const std::string& productId) { m_productId = productId; }
+void Product::setBarcode(const std::string& barcode)     { m_barcode = barcode; }
+void Product::setAcronym(const std::string& acronym) {
+    m_acronym = (acronym.length() <= 8 ? acronym : acronym.substr(0, 8));
+}
+void Product::setName(const std::string& name)                       { m_name = name; }
+void Product::setMeasurementUnit(const std::string& unit)           { m_measurementUnit = unit; }
+void Product::setPrice(double price)                                 { m_price = (price >= 0.0 ? price : 0.0); }
+void Product::setTaxAmount(double taxAmount)                         { m_taxAmount = (taxAmount >= 0.0 ? taxAmount : 0.0); }
+void Product::setDiscountPerUnit(double discount)                   { m_discountPerUnit = (discount >= 0.0 ? discount : 0.0); }
+void Product::setAvailableStock(int stock)                           { m_availableStock = (stock >= 0 ? stock : 0); }
+void Product::setBarcodeFilePath(const std::string& path)           { m_barcodeFilePath = path; }
+void Product::setCategory(const std::string& category)               { m_category = category; }
+void Product::setDescription(const std::string& description)         { m_description = description; }
+void Product::setTaxRate(double taxRate) {
+    m_taxAmount = m_price * (taxRate >= 0.0 ? taxRate / 100.0 : 0.0);
+}
 
-// Stock Operations
 bool Product::hasSufficientStock(int quantity) const {
-    if (quantity <= 0) {
-        return false;
-    }
-    return m_availableStock >= quantity;
+    return (quantity > 0 && quantity <= m_availableStock);
 }
 
 bool Product::deductStock(int quantity) {
@@ -161,141 +209,202 @@ bool Product::restock(int quantity) {
 }
 
 bool Product::isValid() const {
-    return (!m_barcode.empty() && !m_name.empty() && m_price >= 0.0 && m_availableStock >= 0);
+    return (!m_barcode.empty() &&
+            !m_productId.empty() &&
+            !m_name.empty() &&
+            m_price >= 0.0 &&
+            m_availableStock >= 0);
 }
 
 std::string Product::getFormattedDetails() const {
-    std::string out;
+    std::string out = "Product Specifications:\n";
     out += "----------------------------------------\n";
-    out += " Product Information\n";
-    out += "----------------------------------------\n";
-    out += " Barcode        : " + m_barcode + "\n";
-    out += " Product ID     : " + (m_productId.empty() ? "N/A" : m_productId) + "\n";
-    out += " Name           : " + m_name + "\n";
-    out += " Category       : " + (m_category.empty() ? "General" : m_category) + "\n";
-    out += " Unit Price     : $" + formatDouble(m_price, 2) + "\n";
-    out += " Available Stock: " + std::to_string(m_availableStock) + " units\n";
-    out += " Tax Rate       : " + formatDouble(m_taxRate, 2) + "%\n";
-    out += " Description    : " + (m_description.empty() ? "None" : m_description) + "\n";
-    out += "----------------------------------------";
+    out += "  Product ID   : " + m_productId + "\n";
+    out += "  Barcode      : " + m_barcode + "\n";
+    out += "  Acronym      : " + m_acronym + "\n";
+    out += "  Name         : " + m_name + "\n";
+    out += "  Unit         : " + m_measurementUnit + "\n";
+    out += "  Unit Price   : PKR " + formatDouble(m_price, 2) + "\n";
+    out += "  Tax (PKR)    : PKR " + formatDouble(m_taxAmount, 2) + "\n";
+    out += "  Discount/Unit: PKR " + formatDouble(m_discountPerUnit, 2) + "\n";
+    out += "  Available Qty: " + std::to_string(m_availableStock) + " units\n";
+    out += "  Barcode File : " + m_barcodeFilePath + "\n";
     return out;
 }
 
 std::string Product::toTableRow() const {
-    std::string displayName = m_name;
-    if (displayName.length() > 28) {
-        displayName = displayName.substr(0, 25) + "...";
-    }
+    std::string b   = padRight(m_barcode, 10);
+    std::string id  = padRight(m_productId, 10);
+    std::string n   = padRight(m_name, 28);
+    std::string u   = padRight(m_measurementUnit, 8);
+    std::string p   = padLeft(formatDouble(m_price, 2), 9);
+    std::string t   = padLeft(formatDouble(m_taxAmount, 2), 8);
+    std::string s   = padLeft(std::to_string(m_availableStock), 7);
+    return b + " | " + id + " | " + n + " | " + u + " | " + p + " | " + t + " | " + s;
+}
 
-    std::string row = padRight(m_barcode, 10) + " | " +
-                      padRight(m_productId.empty() ? "N/A" : m_productId, 8) + " | " +
-                      padRight(displayName, 28) + " | " +
-                      padRight(m_category, 14) + " | $" +
-                      padRight(formatDouble(m_price, 2), 7) + " | " +
-                      padRight(std::to_string(m_availableStock), 6) + " | " +
-                      padRight(formatDouble(m_taxRate, 2) + "%", 6);
-    return row;
+std::string Product::toFileRecord() const {
+    return m_productId + " " +
+           m_barcode + " " +
+           m_acronym + " " +
+           m_name + " " +
+           m_measurementUnit + " " +
+           formatDouble(m_price, 2) + " " +
+           formatDouble(m_taxAmount, 2) + " " +
+           formatDouble(m_discountPerUnit, 2) + " " +
+           std::to_string(m_availableStock) + " " +
+           m_barcodeFilePath + " #";
 }
 
 std::string Product::toDelimitedString(char delimiter) const {
+    if (delimiter == ' ') {
+        return toFileRecord();
+    }
     std::string delim(1, delimiter);
     return m_barcode + delim +
            m_productId + delim +
            m_name + delim +
-           m_category + delim +
+           (m_category.empty() ? m_measurementUnit : m_category) + delim +
            formatDouble(m_price, 2) + delim +
            std::to_string(m_availableStock) + delim +
-           formatDouble(m_taxRate, 2) + delim +
+           formatDouble(getTaxRate(), 2) + delim +
            m_description;
 }
 
 Product Product::fromDelimitedString(const std::string& line,
-                                     char delimiter,
+                                     char /*delimiter*/,
                                      std::string* errorMsg)
 {
     std::string trimmedLine = trim(line);
-    if (trimmedLine.empty() || trimmedLine[0] == '#') {
-        if (errorMsg) *errorMsg = "Empty line or comment.";
+    if (trimmedLine.empty()) {
+        if (errorMsg) *errorMsg = "Empty line.";
         return Product();
     }
 
-    // Auto-detect delimiter if requested delimiter not found but alternate is present
-    char activeDelimiter = delimiter;
-    if (trimmedLine.find(delimiter) == std::string::npos) {
-        if (trimmedLine.find('|') != std::string::npos) {
-            activeDelimiter = '|';
-        } else if (trimmedLine.find(',') != std::string::npos) {
-            activeDelimiter = ',';
-        } else if (trimmedLine.find('\t') != std::string::npos) {
-            activeDelimiter = '\t';
+    // Comment lines starting with '#' without '# ' or header
+    if (trimmedLine[0] == '#' && trimmedLine.back() != '#') {
+        if (errorMsg) *errorMsg = "Comment line.";
+        return Product();
+    }
+    if (trimmedLine.rfind("//", 0) == 0) {
+        if (errorMsg) *errorMsg = "Comment line.";
+        return Product();
+    }
+
+    // Check for required '#' end marker
+    if (trimmedLine.back() == '#') {
+        std::string content = trim(trimmedLine.substr(0, trimmedLine.length() - 1));
+        if (content.empty()) {
+            if (errorMsg) *errorMsg = "Record contains only '#' marker.";
+            return Product();
         }
-    }
 
-    DynamicArray<std::string> tokens = splitString(trimmedLine, activeDelimiter);
-
-    // Expected format:
-    // Barcode|ProductID|Name|Category|Price|Stock|TaxRate|Description (8 fields)
-    // Or minimum 6 fields: Barcode|ProductID|Name|Category|Price|Stock
-    if (tokens.size() < 6) {
-        if (errorMsg) {
-            *errorMsg = "Insufficient fields in record (found " +
-                        std::to_string(tokens.size()) + ", expected >= 6): " + trimmedLine;
+        // Tokenize by whitespace
+        DynamicArray<std::string> tokens;
+        size_t pos = 0;
+        while (pos < content.length()) {
+            while (pos < content.length() && isWhitespaceChar(content[pos])) {
+                ++pos;
+            }
+            if (pos >= content.length()) break;
+            size_t tokenStart = pos;
+            while (pos < content.length() && !isWhitespaceChar(content[pos])) {
+                ++pos;
+            }
+            tokens.push_back(content.substr(tokenStart, pos - tokenStart));
         }
-        return Product();
-    }
 
-    std::string barcode     = tokens[0];
-    std::string productId   = tokens[1];
-    std::string name        = tokens[2];
-    std::string category    = tokens[3];
-    double price = 0.0;
-    int stock = 0;
-    double taxRate = 0.0;
-    std::string description = "";
+        if (tokens.size() < 10) {
+            if (errorMsg) {
+                *errorMsg = "Insufficient tokens in record (expected at least 10 before '#'): " + trimmedLine;
+            }
+            return Product();
+        }
 
-    try {
-        price = std::stod(tokens[4]);
-    } catch (...) {
-        if (errorMsg) *errorMsg = "Invalid price format: " + tokens[4];
-        return Product();
-    }
+        std::string productId = tokens[0];
+        std::string barcode   = tokens[1];
+        std::string acronym   = tokens[2];
 
-    try {
-        stock = std::stoi(tokens[5]);
-    } catch (...) {
-        if (errorMsg) *errorMsg = "Invalid stock format: " + tokens[5];
-        return Product();
-    }
+        // Search for unit index: token[i] followed by price, tax, discount, quantity
+        int unitIdx = -1;
+        for (int i = 3; i <= static_cast<int>(tokens.size()) - 6; ++i) {
+            try {
+                double testPrice = std::stod(tokens[i + 1]);
+                double testTax   = std::stod(tokens[i + 2]);
+                double testDisc  = std::stod(tokens[i + 3]);
+                int testQty      = std::stoi(tokens[i + 4]);
+                if (testPrice >= 0.0 && testTax >= 0.0 && testDisc >= 0.0 && testQty >= 0) {
+                    unitIdx = i;
+                    break;
+                }
+            } catch (...) {
+                continue;
+            }
+        }
 
-    if (tokens.size() >= 7 && !tokens[6].empty()) {
+        if (unitIdx < 3) {
+            if (errorMsg) {
+                *errorMsg = "Failed to parse product name and numeric fields: " + trimmedLine;
+            }
+            return Product();
+        }
+
+        std::string name = tokens[3];
+        for (int i = 4; i < unitIdx; ++i) {
+            name += " " + tokens[i];
+        }
+
+        std::string measurementUnit = tokens[unitIdx];
         try {
-            taxRate = std::stod(tokens[6]);
+            double price = std::stod(tokens[unitIdx + 1]);
+            double taxAmount = std::stod(tokens[unitIdx + 2]);
+            double discount = std::stod(tokens[unitIdx + 3]);
+            int quantity = std::stoi(tokens[unitIdx + 4]);
+
+            std::string barcodePath = tokens[unitIdx + 5];
+            for (size_t i = unitIdx + 6; i < tokens.size(); ++i) {
+                barcodePath += " " + tokens[i];
+            }
+
+            if (errorMsg) *errorMsg = "";
+            return Product(productId, barcode, acronym, name, measurementUnit,
+                           price, taxAmount, discount, quantity, barcodePath);
         } catch (...) {
-            taxRate = 0.0;
+            if (errorMsg) *errorMsg = "Failed to parse numeric fields in record: " + trimmedLine;
+            return Product();
         }
     }
 
-    if (tokens.size() >= 8) {
-        description = tokens[7];
+    // Backward-compatible fallback for pipe-separated format
+    if (trimmedLine.find('|') != std::string::npos) {
+        DynamicArray<std::string> tokens = splitString(trimmedLine, '|');
+        if (tokens.size() >= 6) {
+            try {
+                std::string barcode   = tokens[0];
+                std::string productId = tokens[1];
+                std::string name      = tokens[2];
+                std::string category  = tokens[3];
+                double price = std::stod(tokens[4]);
+                int stock    = std::stoi(tokens[5]);
+                double taxRate = (tokens.size() >= 7 && !tokens[6].empty()) ? std::stod(tokens[6]) : 0.0;
+                std::string description = (tokens.size() >= 8) ? tokens[7] : name;
+                double taxAmount = price * (taxRate / 100.0);
+                std::string unit = (category == "Bakery" || category == "Pantry") ? "weight" : "count";
+                std::string acronym = (productId.length() <= 8 ? productId : productId.substr(0, 8));
+                std::string path = "barcodes/barcode_" + barcode + ".png";
+                if (errorMsg) *errorMsg = "";
+                return Product(productId, barcode, acronym, name, unit, price, taxAmount, 0.0, stock, path, category, description);
+            } catch (...) {
+                if (errorMsg) *errorMsg = "Malformed numeric field in pipe-delimited record: " + trimmedLine;
+                return Product();
+            }
+        }
     }
 
-    if (barcode.empty()) {
-        if (errorMsg) *errorMsg = "Missing barcode in record.";
-        return Product();
+    if (errorMsg) {
+        *errorMsg = "Record does not match required format (missing '#' end marker): " + trimmedLine;
     }
-
-    if (price < 0.0) {
-        if (errorMsg) *errorMsg = "Negative price is not allowed: " + std::to_string(price);
-        return Product();
-    }
-
-    if (stock < 0) {
-        if (errorMsg) *errorMsg = "Negative stock is not allowed: " + std::to_string(stock);
-        return Product();
-    }
-
-    if (errorMsg) *errorMsg = "";
-    return Product(barcode, productId, name, description, category, price, stock, taxRate);
+    return Product();
 }
 
 } // namespace ProductBilling

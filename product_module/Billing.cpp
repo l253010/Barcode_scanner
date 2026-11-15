@@ -69,8 +69,13 @@ BillItem::BillItem(const Product& product, int quantity, double itemDiscount)
     : m_product(product)
     , m_quantity(quantity > 0 ? quantity : 0)
     , m_unitPrice(product.getPrice())
-    , m_itemDiscount(itemDiscount >= 0.0 ? itemDiscount : 0.0)
+    , m_itemDiscount(0.0)
 {
+    if (itemDiscount > 0.0) {
+        m_itemDiscount = itemDiscount;
+    } else if (product.getDiscountPerUnit() > 0.0) {
+        m_itemDiscount = roundCurrency(product.getDiscountPerUnit() * m_quantity);
+    }
     // Clamp item discount to not exceed the subtotal
     double sub = getSubtotal();
     if (m_itemDiscount > sub) {

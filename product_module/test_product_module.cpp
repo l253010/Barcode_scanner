@@ -176,20 +176,25 @@ void testProductSpecifications() {
 
     recordTest("Retrieve Barcode", p->getBarcode() == "100001");
     recordTest("Retrieve Product ID", p->getProductId() == "PRD-101");
+    recordTest("Retrieve Acronym", p->getAcronym() == "MILK-1L");
     recordTest("Retrieve Product Name", p->getName() == "Organic Whole Milk 1L");
-    recordTest("Retrieve Category", p->getCategory() == "Dairy");
+    recordTest("Retrieve Measurement Unit", p->getMeasurementUnit() == "count");
     recordTest("Retrieve Price", approxEqual(p->getPrice(), 3.49));
     recordTest("Retrieve Stock", p->getAvailableStock() == 50);
+    recordTest("Retrieve Tax Amount (PKR)", approxEqual(p->getTaxAmount(), 0.1745));
     recordTest("Retrieve Tax Rate (%)", approxEqual(p->getTaxRate(), 5.0));
     recordTest("Retrieve Tax Rate Fraction", approxEqual(p->getTaxRateFraction(), 0.05));
-    recordTest("Retrieve Description", p->getDescription() == "Fresh pasteurized whole dairy milk");
+    recordTest("Retrieve Discount Per Unit", approxEqual(p->getDiscountPerUnit(), 0.0));
+    recordTest("Retrieve Barcode File Path", p->getBarcodeFilePath() == "barcodes/barcode_100001.png");
 
     // Formatted GUI string contains all fields
     std::string details = p->getFormattedDetails();
     recordTest("GUI-ready formatted details contains specifications",
                details.find("100001") != std::string::npos &&
                details.find("PRD-101") != std::string::npos &&
+               details.find("MILK-1L") != std::string::npos &&
                details.find("Organic Whole Milk 1L") != std::string::npos &&
+               details.find("count") != std::string::npos &&
                details.find("3.49") != std::string::npos);
 }
 
@@ -616,6 +621,8 @@ void testDynamicArrayLifecycle() {
 // Main Execution
 // ----------------------------------------------------------------------------
 int main() {
+    std::cout << std::unitbuf;
+    std::cerr << std::unitbuf;
     std::cout << "=================================================================\n";
     std::cout << "  Product Management & Billing Calculation Module Test Suite   \n";
     std::cout << "=================================================================\n";
