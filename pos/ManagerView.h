@@ -21,6 +21,7 @@ signals:
 private slots:
     void onSearchTextChanged(const QString& text);
     void onInspectClicked();
+    void onUpdateStockClicked();
 
 private:
     IProductService* m_productService;

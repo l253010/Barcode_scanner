@@ -185,6 +185,74 @@ int main() {
     }
     TEST_ASSERT(true, "Scoped ProductBillingService, BillInfo, and vectors destroyed cleanly without leak or crash");
 
+    // TEST 17: Manager Stock Update & Edge Cases
+    std::cout << "\n=== TEST 17: Manager Stock Update (Manager View) ===\n";
+    std::string updateErr;
+    // Set stock to 0
+    bool zeroSuccess = service.updateProductStock("100001", 0, &updateErr);
+    TEST_ASSERT(zeroSuccess && service.getProductManager().getStock("100001") == 0,
+                "Manager can decrease stock to zero");
+
+    // Increase stock from 0
+    bool incFromZero = service.updateProductStock("100001", 75, &updateErr);
+    TEST_ASSERT(incFromZero && service.getProductManager().getStock("100001") == 75,
+                "Manager can increase stock from zero (0 -> 75)");
+
+    // Reject negative stock update
+    bool negSuccess = service.updateProductStock("100001", -10, &updateErr);
+    TEST_ASSERT(!negSuccess && service.getProductManager().getStock("100001") == 75,
+                "Manager update rejects negative stock without changing inventory");
+
+    // Reject nonexistent product
+    bool nonExistSuccess = service.updateProductStock("999999", 50, &updateErr);
+    TEST_ASSERT(!nonExistSuccess, "Manager update rejects nonexistent product");
+
+    // TEST 18: Inventory Persistence Across Restart
+    std::cout << "\n=== TEST 18: Inventory Persistence Across Application Restart ===\n";
+    // Set a known unique stock value for Lemonade (500001)
+    service.updateProductStock("500001", 42, &updateErr);
+    TEST_ASSERT(service.getProductManager().getStock("500001") == 42,
+                "Lemonade stock set to 42 before restart simulation");
+
+    // Simulate application restart by creating a new service instance reading from disk
+    {
+        ProductBillingService restartedService;
+        int loadedLemonadeStock = restartedService.getProductManager().getStock("500001");
+        int loadedMilkStock = restartedService.getProductManager().getStock("100001");
+        TEST_ASSERT(loadedLemonadeStock == 42,
+                    "Persisted Lemonade stock (42) successfully reloaded after simulated restart");
+        TEST_ASSERT(loadedMilkStock == 75,
+                    "Persisted Milk stock (75) successfully reloaded after simulated restart");
+    }
+
+    // TEST 19: Checkout Stock Deduction & Persistence Across Restart
+    std::cout << "\n=== TEST 19: Checkout Deduction Persistence Across Restart ===\n";
+    ProductInfo lemonInfo;
+    service.findProductByBarcode("500001", lemonInfo);
+    std::vector<OrderItem> lemonCart;
+    OrderItem lemonItem;
+    lemonItem.product = lemonInfo;
+    lemonItem.quantity = 5;
+    lemonCart.push_back(lemonItem);
+    BillInfo lemonBill = service.generateBill("Customer Persistence", "", lemonCart);
+    bool lemonCommit = service.commitOrderStock(lemonBill);
+    TEST_ASSERT(lemonCommit, "Checkout stock commitment succeeds");
+    TEST_ASSERT(service.getProductManager().getStock("500001") == 37,
+                "Lemonade stock deducted from 42 to 37 in memory");
+
+    // Simulate restart after checkout
+    {
+        ProductBillingService checkoutRestartService;
+        int reloadedStock = checkoutRestartService.getProductManager().getStock("500001");
+        TEST_ASSERT(reloadedStock == 37,
+                    "Checkout deduction (37 units) persisted to disk and reloaded after restart");
+    }
+
+    // Restore baseline stock levels for clean state
+    service.updateProductStock("100001", 50);
+    service.updateProductStock("100002", 40);
+    service.updateProductStock("500001", 8);
+
     std::cout << "\n=================================================================\n";
     std::cout << "  INTEGRATION TEST RESULTS SUMMARY\n";
     std::cout << "=================================================================\n";

@@ -54,6 +54,14 @@ namespace {
         return std::to_string(whole) + "." + fracStr;
     }
 
+    std::string formatTaxDouble(double value) {
+        std::string s = formatDouble(value, 4);
+        while (s.length() > 4 && s.back() == '0' && s[s.length() - 3] != '.') {
+            s.pop_back();
+        }
+        return s;
+    }
+
     std::string padRight(const std::string& str, size_t width, char padChar = ' ') {
         if (str.length() >= width) return str;
         return str + std::string(width - str.length(), padChar);
@@ -250,7 +258,7 @@ std::string Product::toFileRecord() const {
            m_name + " " +
            m_measurementUnit + " " +
            formatDouble(m_price, 2) + " " +
-           formatDouble(m_taxAmount, 2) + " " +
+           formatTaxDouble(m_taxAmount) + " " +
            formatDouble(m_discountPerUnit, 2) + " " +
            std::to_string(m_availableStock) + " " +
            m_barcodeFilePath + " #";

@@ -135,6 +135,15 @@ public:
      */
     bool addStock(const std::string& barcode, int quantity, std::string* reason = nullptr);
 
+    /**
+     * @brief Directly sets the inventory stock level for a product.
+     * @param barcode Product barcode.
+     * @param newQuantity Non-negative new stock level.
+     * @param reason Optional pointer to receive status or error outcome.
+     * @return true on success, false if product not found or invalid quantity.
+     */
+    bool setStock(const std::string& barcode, int newQuantity, std::string* reason = nullptr);
+
     // ---- Catalog Statistics & Queries ----
     size_t getProductCount() const;
     DynamicArray<Product> getAllProducts() const;

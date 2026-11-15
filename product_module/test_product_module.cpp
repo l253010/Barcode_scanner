@@ -251,6 +251,21 @@ void testStockManagement() {
     bool restocked = manager.addStock("100001", 10, &reason);
     recordTest("Restock inventory (45 + 10 -> 55)",
                restocked && manager.getStock("100001") == 55, reason);
+
+    // Set stock directly (including decrease and setting to 0)
+    bool setZero = manager.setStock("100001", 0, &reason);
+    recordTest("Set stock to zero directly",
+               setZero && manager.getStock("100001") == 0, reason);
+
+    // Increase stock from zero
+    bool setFromZero = manager.setStock("100001", 50, &reason);
+    recordTest("Increase stock from zero (0 -> 50)",
+               setFromZero && manager.getStock("100001") == 50, reason);
+
+    // Reject negative stock setting
+    bool setNegative = manager.setStock("100001", -5, &reason);
+    recordTest("Reject negative stock setting (-5)",
+               !setNegative && manager.getStock("100001") == 50, reason);
 }
 
 // ----------------------------------------------------------------------------

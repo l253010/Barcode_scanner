@@ -198,11 +198,136 @@ BillInfo ProductBillingService::generateBill(const std::string& customerName,
     return billInfo;
 }
 
+bool ProductBillingService::saveCatalog(std::string* errorMsg) {
+    std::string primaryPath = m_productManager.getLastLoadedFilePath();
+    if (primaryPath.empty()) {
+        primaryPath = "product_module/Product.txt";
+    }
+
+    std::string status;
+    if (!m_productManager.saveToFile(primaryPath, &status)) {
+        if (errorMsg) *errorMsg = status;
+        return false;
+    }
+
+    // Also sync to other known relative locations if they exist and are distinct
+    const char* secondaryPaths[] = {
+        "product_module/Product.txt",
+        "../../product_module/Product.txt",
+        "../product_module/Product.txt",
+        "Product.txt"
+    };
+
+    for (const char* secPath : secondaryPaths) {
+        if (primaryPath != secPath) {
+            std::ifstream test(secPath);
+            if (test.good()) {
+                test.close();
+                m_productManager.saveToFile(secPath, nullptr);
+            }
+        }
+    }
+
+    if (errorMsg) *errorMsg = status;
+    return true;
+}
+
+bool ProductBillingService::updateProductStock(const std::string& barcode, int newStock, std::string* errorMsg) {
+    if (newStock < 0) {
+        if (errorMsg) *errorMsg = "Stock quantity cannot be negative.";
+        return false;
+    }
+
+    const ProductBilling::Product* prod = m_productManager.findProductByBarcode(barcode);
+    if (!prod) {
+        if (errorMsg) *errorMsg = "Product with barcode '" + barcode + "' not found in catalog.";
+        return false;
+    }
+
+    int oldStock = prod->getAvailableStock();
+    if (oldStock == newStock) {
+        return true;
+    }
+
+    // 1. Update in-memory stock
+    if (!m_productManager.setStock(barcode, newStock, errorMsg)) {
+        return false;
+    }
+
+    // 2. Persist to disk
+    std::string saveErr;
+    if (!saveCatalog(&saveErr)) {
+        // Rollback in memory to keep RAM and disk consistent
+        m_productManager.setStock(barcode, oldStock);
+        if (errorMsg) {
+            *errorMsg = "Failed to persist stock update to disk: " + saveErr + " (In-memory update rolled back).";
+        }
+        return false;
+    }
+
+    return true;
+}
+
 bool ProductBillingService::commitOrderStock(const BillInfo& bill, std::string* errorMsg) {
+    if (bill.items.empty()) {
+        return true;
+    }
+
+    // 1. Pre-validate stock availability for all items in the bill
     for (const auto& item : bill.items) {
-        if (!m_productManager.reduceStock(item.product.barcode, item.quantity, errorMsg)) {
+        const ProductBilling::Product* prod = m_productManager.findProductByBarcode(item.product.barcode);
+        if (!prod) {
+            if (errorMsg) *errorMsg = "Product with barcode '" + item.product.barcode + "' not found in catalog.";
+            return false;
+        }
+        if (!prod->hasSufficientStock(item.quantity)) {
+            if (errorMsg) {
+                *errorMsg = "Insufficient stock for '" + prod->getName() +
+                            "'. Requested: " + std::to_string(item.quantity) +
+                            ", Available: " + std::to_string(prod->getAvailableStock()) + ".";
+            }
             return false;
         }
     }
+
+    // 2. Record previous stock states for atomic rollback if disk persistence fails
+    struct RollbackItem {
+        std::string barcode;
+        int previousStock;
+    };
+    std::vector<RollbackItem> history;
+    history.reserve(bill.items.size());
+
+    for (const auto& item : bill.items) {
+        const ProductBilling::Product* prod = m_productManager.findProductByBarcode(item.product.barcode);
+        if (prod) {
+            history.push_back({item.product.barcode, prod->getAvailableStock()});
+        }
+    }
+
+    // 3. Deduct stock in memory
+    for (const auto& item : bill.items) {
+        if (!m_productManager.reduceStock(item.product.barcode, item.quantity, errorMsg)) {
+            // Rollback in-memory state
+            for (const auto& entry : history) {
+                m_productManager.setStock(entry.barcode, entry.previousStock);
+            }
+            return false;
+        }
+    }
+
+    // 4. Persist updated inventory to Product.txt
+    std::string saveErr;
+    if (!saveCatalog(&saveErr)) {
+        // Rollback in-memory stock to prevent state inconsistency
+        for (const auto& entry : history) {
+            m_productManager.setStock(entry.barcode, entry.previousStock);
+        }
+        if (errorMsg) {
+            *errorMsg = "Persistence failed: " + saveErr + " (In-memory stock was rolled back).";
+        }
+        return false;
+    }
+
     return true;
 }

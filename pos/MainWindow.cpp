@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 #include <QFrame>
 #include <QApplication>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_mockService = std::make_unique<MockDataService>();
@@ -292,7 +293,15 @@ void MainWindow::onProceedToPaymentRequested(const BillInfo& bill) {
 
 void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
     m_activeBill = updatedBill;
-    m_productBillingService->commitOrderStock(updatedBill);
+    std::string commitError;
+    if (!m_productBillingService->commitOrderStock(updatedBill, &commitError)) {
+        QMessageBox::warning(
+            this,
+            "Inventory Persistence Notice",
+            QString("Order completed, but inventory stock deduction could not be saved to disk:\n%1")
+                .arg(QString::fromStdString(commitError))
+        );
+    }
     m_managerView->refreshCatalog();
     m_mockService->saveBill(updatedBill);
     m_billView->loadBill(updatedBill);

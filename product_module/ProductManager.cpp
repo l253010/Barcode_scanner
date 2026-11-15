@@ -305,6 +305,25 @@ bool ProductManager::addStock(const std::string& barcode, int quantity, std::str
     return true;
 }
 
+bool ProductManager::setStock(const std::string& barcode, int newQuantity, std::string* reason) {
+    if (newQuantity < 0) {
+        if (reason) *reason = "Quantity cannot be negative (received: " + std::to_string(newQuantity) + ").";
+        return false;
+    }
+
+    Product* p = getMutableProduct(barcode);
+    if (p == nullptr) {
+        if (reason) *reason = "Product '" + barcode + "' not found.";
+        return false;
+    }
+
+    p->setAvailableStock(newQuantity);
+    if (reason) {
+        *reason = "Stock updated successfully to " + std::to_string(newQuantity);
+    }
+    return true;
+}
+
 size_t ProductManager::getProductCount() const {
     return m_products.size();
 }
