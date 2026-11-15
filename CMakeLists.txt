@@ -38,6 +38,17 @@ set(POS_SOURCES
     pos/MockDataService.h
     pos/MockDataService.cpp
 
+    # Product & Billing Module Integration
+    pos/ProductBillingService.h
+    pos/ProductBillingService.cpp
+    product_module/DynamicArray.h
+    product_module/Product.h
+    product_module/Product.cpp
+    product_module/ProductManager.h
+    product_module/ProductManager.cpp
+    product_module/Billing.h
+    product_module/Billing.cpp
+
     # Screens
     pos/DashboardView.h
     pos/DashboardView.cpp
@@ -64,6 +75,7 @@ add_executable(pos_app ${POS_SOURCES})
 target_include_directories(pos_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pos
     ${CMAKE_CURRENT_SOURCE_DIR}/barcode
+    ${CMAKE_CURRENT_SOURCE_DIR}/product_module
 )
 
 # Link against Qt6 Widgets
@@ -77,3 +89,11 @@ if(WIN32)
         WIN32_EXECUTABLE $<CONFIG:Release>
     )
 endif()
+
+# Copy Product.txt alongside the executable so the application finds it at runtime
+add_custom_command(TARGET pos_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/product_module/Product.txt"
+    "$<TARGET_FILE_DIR:pos_app>/Product.txt"
+    COMMENT "Copying Product.txt to output directory"
+)
