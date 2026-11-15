@@ -96,6 +96,7 @@ public:
     virtual bool findProductByBarcode(const std::string& barcode, ProductInfo& outProduct) = 0;
     virtual bool findProductById(int id, ProductInfo& outProduct) = 0;
     virtual std::vector<ProductInfo> getAllProducts() = 0;
+    virtual bool updateProductStock(const std::string& barcode, int newStock, std::string* errorMsg = nullptr) = 0;
 };
 
 class IBillingService {

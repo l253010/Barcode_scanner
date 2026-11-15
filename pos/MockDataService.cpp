@@ -46,6 +46,21 @@ std::vector<ProductInfo> MockDataService::getAllProducts() {
     return m_catalog;
 }
 
+bool MockDataService::updateProductStock(const std::string& barcode, int newStock, std::string* errorMsg) {
+    if (newStock < 0) {
+        if (errorMsg) *errorMsg = "Stock cannot be negative.";
+        return false;
+    }
+    for (auto& item : m_catalog) {
+        if (item.barcode == barcode) {
+            item.availableQuantity = newStock;
+            return true;
+        }
+    }
+    if (errorMsg) *errorMsg = "Product with barcode '" + barcode + "' not found.";
+    return false;
+}
+
 BillInfo MockDataService::generateBill(const std::string& customerName,
                                       const std::string& customerContact,
                                       const std::vector<OrderItem>& items) {

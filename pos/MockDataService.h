@@ -21,6 +21,7 @@ public:
     bool findProductByBarcode(const std::string& barcode, ProductInfo& outProduct) override;
     bool findProductById(int id, ProductInfo& outProduct) override;
     std::vector<ProductInfo> getAllProducts() override;
+    bool updateProductStock(const std::string& barcode, int newStock, std::string* errorMsg = nullptr) override;
 
     // ---- IBillingService ----
     BillInfo generateBill(const std::string& customerName,

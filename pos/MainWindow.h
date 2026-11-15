@@ -8,6 +8,7 @@
 
 #include "POSInterfaces.h"
 #include "MockDataService.h"
+#include "ProductBillingService.h"
 
 // Forward screen declarations
 class DashboardView;
@@ -33,8 +34,9 @@ public slots:
     void onAddProductToCartRequested(const ProductInfo& product);
 
 private:
-    std::unique_ptr<MockDataService> m_mockService;
-    BillInfo                         m_activeBill;
+    std::unique_ptr<MockDataService>       m_mockService;
+    std::unique_ptr<ProductBillingService> m_productBillingService;
+    BillInfo                               m_activeBill;
 
     // UI Structure
     QStackedWidget*           m_stack{nullptr};

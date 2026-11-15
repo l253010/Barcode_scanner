@@ -10,9 +10,11 @@
 #include <QVBoxLayout>
 #include <QFrame>
 #include <QApplication>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_mockService = std::make_unique<MockDataService>();
+    m_productBillingService = std::make_unique<ProductBillingService>();
     setupUi();
     navigateToScreen(0); // Start on Dashboard
 }
@@ -203,13 +205,13 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_dashboardView);
 
     // Screen 1: Cashier / New Order
-    m_cashierView = new CashierOrderView(m_mockService.get(), m_mockService.get(), m_mockService.get(), this);
+    m_cashierView = new CashierOrderView(m_productBillingService.get(), m_productBillingService.get(), m_mockService.get(), this);
     connect(m_cashierView, &CashierOrderView::billGenerated, this, &MainWindow::onBillGenerated);
     connect(m_cashierView, &CashierOrderView::inspectProductRequested, this, &MainWindow::onInspectProductRequested);
     m_stack->addWidget(m_cashierView);
 
     // Screen 2: Product Description
-    m_descView = new ProductDescriptionView(m_mockService.get(), this);
+    m_descView = new ProductDescriptionView(m_productBillingService.get(), this);
     connect(m_descView, &ProductDescriptionView::addProductToCart, this, &MainWindow::onAddProductToCartRequested);
     connect(m_descView, &ProductDescriptionView::backToCashierRequested, [this]() { navigateToScreen(1); });
     m_stack->addWidget(m_descView);
@@ -234,7 +236,7 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_paymentView);
 
     // Screen 5: Manager View
-    m_managerView = new ManagerView(m_mockService.get(), this);
+    m_managerView = new ManagerView(m_productBillingService.get(), this);
     connect(m_managerView, &ManagerView::inspectProductRequested, this, &MainWindow::onInspectProductRequested);
     connect(m_managerView, &ManagerView::backToDashboardRequested, [this]() { navigateToScreen(0); });
     m_stack->addWidget(m_managerView);
@@ -246,7 +248,7 @@ void MainWindow::syncActiveBill() {
     // If no bill has been generated yet, but the cashier has items in the cart,
     // automatically generate the active bill so Bill Preview and Payment always have live data
     if (m_activeBill.items.empty() && m_cashierView && !m_cashierView->getCartItems().empty()) {
-        m_activeBill = m_mockService->generateBill("Walk-in Customer", "", m_cashierView->getCartItems());
+        m_activeBill = m_productBillingService->generateBill("Walk-in Customer", "", m_cashierView->getCartItems());
     }
 
     if (!m_activeBill.items.empty()) {
@@ -291,6 +293,17 @@ void MainWindow::onProceedToPaymentRequested(const BillInfo& bill) {
 
 void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
     m_activeBill = updatedBill;
+    std::string commitError;
+    if (!m_productBillingService->commitOrderStock(updatedBill, &commitError)) {
+        QMessageBox::warning(
+            this,
+            "Inventory Persistence Notice",
+            QString("Order completed, but inventory stock deduction could not be saved to disk:\n%1")
+                .arg(QString::fromStdString(commitError))
+        );
+    }
+    m_managerView->refreshCatalog();
+    m_mockService->saveBill(updatedBill);
     m_billView->loadBill(updatedBill);
     m_cashierView->resetOrder(); // Clear cart for next customer
     navigateToScreen(3); // Return to Bill Preview showing PAID status

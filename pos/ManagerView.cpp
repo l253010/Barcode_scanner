@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <algorithm>
 
 ManagerView::ManagerView(IProductService* productService, QWidget* parent)
@@ -80,9 +81,25 @@ void ManagerView::setupUi() {
     );
     connect(inspectBtn, &QPushButton::clicked, this, &ManagerView::onInspectClicked);
 
+    auto* updateStockBtn = new QPushButton("Update Stock", this);
+    updateStockBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #0284C7;"
+        "  color: #FFFFFF;"
+        "  font-weight: 600;"
+        "  font-size: 13px;"
+        "  padding: 7px 18px;"
+        "  border-radius: 4px;"
+        "  border: none;"
+        "}"
+        "QPushButton:hover { background-color: #0369A1; }"
+    );
+    connect(updateStockBtn, &QPushButton::clicked, this, &ManagerView::onUpdateStockClicked);
+
     filterLayout->addWidget(searchTitle);
     filterLayout->addWidget(m_searchInput, 2);
     filterLayout->addWidget(inspectBtn);
+    filterLayout->addWidget(updateStockBtn);
     mainLayout->addLayout(filterLayout);
 
     // Catalog Table
@@ -119,9 +136,13 @@ void ManagerView::setupUi() {
         "  border: 1px solid #E5E7EB;"
         "}"
     );
-    connect(m_catalogTable, &QTableWidget::cellDoubleClicked, [this](int row, int /*col*/) {
+    connect(m_catalogTable, &QTableWidget::cellDoubleClicked, [this](int row, int col) {
         if (row >= 0 && m_catalogTable->item(row, 1)) {
-            emit inspectProductRequested(m_catalogTable->item(row, 1)->text().toStdString());
+            if (col == 9) {
+                onUpdateStockClicked();
+            } else {
+                emit inspectProductRequested(m_catalogTable->item(row, 1)->text().toStdString());
+            }
         }
     });
 
@@ -186,7 +207,7 @@ void ManagerView::populateTable(const std::vector<ProductInfo>& products) {
         m_catalogTable->setItem(i, 9, stockItem);
     }
 
-    m_summaryLabel->setText(QString("Total catalog entries displayed: %1 (Double-click any row to view description)").arg(products.size()));
+    m_summaryLabel->setText(QString("Total catalog entries displayed: %1 (Click 'Update Stock' or double-click Stock to edit; double-click row to view description)").arg(products.size()));
 }
 
 void ManagerView::onSearchTextChanged(const QString& text) {
@@ -225,5 +246,54 @@ void ManagerView::onInspectClicked() {
         emit inspectProductRequested(m_catalogTable->item(row, 1)->text().toStdString());
     } else {
         QMessageBox::information(this, "Select Product", "Please select a product row from the table to view its description.");
+    }
+}
+
+void ManagerView::onUpdateStockClicked() {
+    int row = m_catalogTable->currentRow();
+    if (row < 0 || !m_catalogTable->item(row, 1)) {
+        QMessageBox::information(this, "Select Product", "Please select a product row from the table to update its stock.");
+        return;
+    }
+
+    std::string barcode = m_catalogTable->item(row, 1)->text().toStdString();
+    QString productName = m_catalogTable->item(row, 3) ? m_catalogTable->item(row, 3)->text() : "Product";
+    int currentStock = m_catalogTable->item(row, 9) ? m_catalogTable->item(row, 9)->text().toInt() : 0;
+
+    bool ok = false;
+    int newStock = QInputDialog::getInt(
+        this,
+        "Update Inventory Stock",
+        QString("Enter new available stock quantity for '%1' (%2):").arg(productName).arg(QString::fromStdString(barcode)),
+        currentStock,
+        0,       // Minimum stock allowed is 0
+        999999,  // Maximum allowable stock
+        1,
+        &ok
+    );
+
+    if (ok) {
+        if (newStock == currentStock) {
+            return;
+        }
+
+        std::string errorMsg;
+        if (m_productService && m_productService->updateProductStock(barcode, newStock, &errorMsg)) {
+            refreshCatalog();
+            QMessageBox::information(
+                this,
+                "Stock Updated",
+                QString("Stock for '%1' was successfully updated to %2 and saved to Product.txt.")
+                    .arg(productName)
+                    .arg(newStock)
+            );
+        } else {
+            QMessageBox::critical(
+                this,
+                "Stock Update Failed",
+                QString("Failed to update stock: %1")
+                    .arg(QString::fromStdString(errorMsg))
+            );
+        }
     }
 }
