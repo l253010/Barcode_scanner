@@ -170,26 +170,23 @@ static bool TryDecodeFromRuns(const Run* runs, int runCount, DecodeResult& outRe
         // Start '*' pattern is "NWNNWNWNN":
         // Narrow elements: 0, 2, 3, 5, 7, 8 (6 elements)
         // Wide elements:   1, 4, 6          (3 elements)
-        int narrowMax = runs[startIdx + 0].width;
-        narrowMax = max_val(narrowMax, runs[startIdx + 2].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 3].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 5].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 7].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 8].width);
+        int narrowSum = runs[startIdx + 0].width + runs[startIdx + 2].width +
+                        runs[startIdx + 3].width + runs[startIdx + 5].width +
+                        runs[startIdx + 7].width + runs[startIdx + 8].width;
+        int wideSum   = runs[startIdx + 1].width + runs[startIdx + 4].width + runs[startIdx + 6].width;
 
-        int wideMin = runs[startIdx + 1].width;
-        wideMin = min_val(wideMin, runs[startIdx + 4].width);
-        wideMin = min_val(wideMin, runs[startIdx + 6].width);
+        double narrowAvg = narrowSum / 6.0;
+        double wideAvg   = wideSum / 3.0;
 
-        // Wide elements must be noticeably wider than narrow elements
-        if (wideMin <= narrowMax) {
+        // Wide elements must be noticeably wider than narrow elements (standard ratio ~2.0 - 3.0)
+        if (wideAvg < narrowAvg * 1.35 || narrowAvg < 0.5) {
             continue;
         }
 
-        double threshold = (narrowMax + wideMin) / 2.0;
+        double threshold = (narrowAvg + wideAvg) / 2.0;
 
         // Gap after start character must be a space of narrow width
-        if (runs[startIdx + 9].isBar || runs[startIdx + 9].width > threshold * 1.8) {
+        if (runs[startIdx + 9].isBar || runs[startIdx + 9].width > threshold * 2.2) {
             continue;
         }
 
@@ -265,8 +262,10 @@ template <typename PixelRowFetcher>
 static DecodeResult DecodeFromScanlineSource(int width, int height, PixelRowFetcher&& fetchRow) {
     ScanlineBuffer buffer(static_cast<size_t>(width));
 
-    const double scanFractions[] = { 0.50, 0.40, 0.60, 0.30, 0.70 };
-    const int numFractions = 5;
+    const double scanFractions[] = {
+        0.50, 0.45, 0.55, 0.40, 0.60, 0.35, 0.65, 0.30, 0.70, 0.25, 0.75, 0.20, 0.80, 0.15, 0.85
+    };
+    const int numFractions = 15;
 
     bool hasAnyContrast = false;
     DecodeResult validationFailureResult = { false, "", "" };

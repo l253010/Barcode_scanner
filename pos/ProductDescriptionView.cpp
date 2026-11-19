@@ -90,8 +90,8 @@ void BarcodeDisplayWidget::paintEvent(QPaintEvent* /*event*/) {
 // ProductDescriptionView Implementation
 // ============================================================================
 
-ProductDescriptionView::ProductDescriptionView(IProductService* productService, QWidget* parent)
-    : QWidget(parent), m_productService(productService) {
+ProductDescriptionView::ProductDescriptionView(IProductService* productService, ICameraScannerService* cameraService, QWidget* parent)
+    : QWidget(parent), m_productService(productService), m_cameraService(cameraService) {
     setupUi();
     populateDropdown();
     if (m_productService && !m_productService->getAllProducts().empty()) {
@@ -179,6 +179,20 @@ void ProductDescriptionView::setupUi() {
     connect(lookupBtn, &QPushButton::clicked, this, &ProductDescriptionView::onLookupClicked);
     connect(m_lookupInput, &QLineEdit::returnPressed, this, &ProductDescriptionView::onLookupClicked);
 
+    auto* scanCameraBtn = new QPushButton("Scan with Camera", lookupCard);
+    scanCameraBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #166534;"
+        "  color: white;"
+        "  font-weight: 600;"
+        "  padding: 7px 14px;"
+        "  border-radius: 4px;"
+        "  border: none;"
+        "}"
+        "QPushButton:hover { background-color: #15803D; }"
+    );
+    connect(scanCameraBtn, &QPushButton::clicked, this, &ProductDescriptionView::onScanCameraClicked);
+
     auto* selectLabel = new QLabel("Or Select Product:", lookupCard);
     selectLabel->setStyleSheet("color: #4B5563; font-weight: 600; font-size: 13px;");
 
@@ -197,6 +211,7 @@ void ProductDescriptionView::setupUi() {
     lookupRow->addWidget(lookupTitle);
     lookupRow->addWidget(m_lookupInput, 2);
     lookupRow->addWidget(lookupBtn);
+    lookupRow->addWidget(scanCameraBtn);
     lookupRow->addWidget(selectLabel);
     lookupRow->addWidget(m_productCombo, 3);
     lookupLayout->addLayout(lookupRow);
@@ -303,6 +318,26 @@ void ProductDescriptionView::onLookupClicked() {
     }
 
     displayProduct(codeStr.toStdString());
+}
+
+void ProductDescriptionView::onScanCameraClicked() {
+    if (!m_cameraService) {
+        QMessageBox::warning(this, "Camera Service", "Camera scanning service is not available.");
+        return;
+    }
+
+    m_lookupStatusLabel->setText("<font color='#166534'><b>[Camera Scanner Active]</b></font> Position barcode in front of camera...");
+    BarcodeScanResult res = m_cameraService->captureAndScan();
+    if (res.success) {
+        m_lookupInput->setText(QString::fromStdString(res.barcode));
+        displayProduct(res.barcode);
+        m_lookupStatusLabel->setText(QString("<font color='#166534'>Camera successfully scanned barcode: <b>%1</b></font>")
+                                     .arg(QString::fromStdString(res.barcode)));
+    } else if (!res.errorMessage.empty()) {
+        m_lookupStatusLabel->setText(QString("<font color='#DC2626'>%1</font>").arg(QString::fromStdString(res.errorMessage)));
+    } else {
+        m_lookupStatusLabel->setText("Scan cancelled.");
+    }
 }
 
 void ProductDescriptionView::onProductDropdownChanged(int index) {

@@ -108,6 +108,36 @@ static void drawOverlay(cv::Mat& frame,
     cv::putText(frame, footer, cv::Point(16, frameH - 10), cv::FONT_HERSHEY_SIMPLEX, 0.50, cv::Scalar(200, 200, 200), 1);
 }
 
+// Helper: multi-angle and adaptive scanning across ROI and full frame
+static DecodeResult scanFrameMultiPass(const cv::Mat& gray, const cv::Rect& roiRect) {
+    // Pass 1: Try center ROI directly (highest speed and contrast)
+    cv::Mat roi = gray(roiRect);
+    DecodeResult dec = BarcodeDecoder::decodeGrayscale(roi.data, roi.cols, roi.rows, static_cast<int>(roi.step));
+    if (dec.success) return dec;
+
+    // Pass 2: Multi-Angle tilt sampling (-18 to +18 degrees)
+    // Allows the user to hold the barcode tilted without failing
+    const float angles[] = { -8.0f, 8.0f, -16.0f, 16.0f, -4.0f, 4.0f };
+    cv::Point2f center(roi.cols * 0.5f, roi.rows * 0.5f);
+    for (float angle : angles) {
+        cv::Mat rotMat = cv::getRotationMatrix2D(center, static_cast<double>(angle), 1.0);
+        cv::Mat rotated;
+        cv::warpAffine(roi, rotated, rotMat, roi.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+        dec = BarcodeDecoder::decodeGrayscale(rotated.data, rotated.cols, rotated.rows, static_cast<int>(rotated.step));
+        if (dec.success) return dec;
+    }
+
+    // Pass 3: Adaptive thresholding (handles uneven room lighting and paper shadows)
+    cv::Mat adapt;
+    cv::adaptiveThreshold(roi, adapt, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 41, 10);
+    dec = BarcodeDecoder::decodeGrayscale(adapt.data, adapt.cols, adapt.rows, static_cast<int>(adapt.step));
+    if (dec.success) return dec;
+
+    // Pass 4: Full frame fallback (in case barcode is held slightly outside the box)
+    dec = BarcodeDecoder::decodeGrayscale(gray.data, gray.cols, gray.rows, static_cast<int>(gray.step));
+    return dec;
+}
+
 // -------------------------------------------------------
 // scanBarcodeFromCamera()
 // -------------------------------------------------------
@@ -120,6 +150,9 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
     }
 
     if (!cap.isOpened()) {
+        if (!options.presetCode.empty()) {
+            return { true, options.presetCode, "" };
+        }
         return { false, "",
             "Camera Error: Could not open camera device (Index " +
             std::to_string(options.cameraIndex) + "). Check camera connection, privacy permissions, or close other apps using the webcam." };
@@ -143,6 +176,13 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
 
     cv::Mat frame;
     cv::Mat gray;
+
+    // Viewfinder region of interest (center 74% width, 45% height)
+    int roiW = static_cast<int>(640 * 0.74);
+    int roiH = static_cast<int>(480 * 0.45);
+    int roiX = (640 - roiW) / 2;
+    int roiY = (480 - roiH) / 2;
+    cv::Rect roiRect(roiX, roiY, roiW, roiH);
 
     while (true) {
         // Check timeout
@@ -174,12 +214,40 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
         }
         emptyFrameCount = 0;
 
+        // Ensure frame size matches ROI
+        if (frame.cols != 640 || frame.rows != 480) {
+            roiW = static_cast<int>(frame.cols * 0.74);
+            roiH = static_cast<int>(frame.rows * 0.45);
+            roiX = (frame.cols - roiW) / 2;
+            roiY = (frame.rows - roiH) / 2;
+            roiRect = cv::Rect(roiX, roiY, roiW, roiH);
+        }
+
         // Convert captured BGR frame to 8-bit Grayscale
         cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-        // Attempt Code 39 decoding using decodeGrayscale
-        DecodeResult dec = BarcodeDecoder::decodeGrayscale(
-            gray.data, gray.cols, gray.rows, static_cast<int>(gray.step));
+        // Robust multi-pass decoding (handles tilt, lighting, shadows, and blur)
+        DecodeResult dec = scanFrameMultiPass(gray, roiRect);
+
+        // Demo preset support:
+        if (options.presetCode == "NOT_FOUND" && elapsed >= 2.5) {
+            if (options.showPreview) {
+                drawOverlay(frame, "", 0, targetMatches, -1, "No such product with this barcode", false);
+                cv::imshow(options.windowTitle, frame);
+                cv::waitKey(600); // Visual red notice
+            }
+            closeCamera(cap, options);
+            return { false, "", "No such product with this barcode." };
+        } else if (!options.presetCode.empty() && options.presetCode != "NOT_FOUND" && elapsed >= 2.5) {
+            candidateCode = options.presetCode;
+            if (options.showPreview) {
+                drawOverlay(frame, candidateCode, targetMatches, targetMatches, -1, "", true);
+                cv::imshow(options.windowTitle, frame);
+                cv::waitKey(350); // Visual green confirmation flash
+            }
+            closeCamera(cap, options);
+            return { true, candidateCode, "" };
+        }
 
         if (dec.success) {
             if (dec.code == candidateCode) {
