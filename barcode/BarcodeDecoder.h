@@ -39,6 +39,14 @@ public:
     // validates the resulting 6-digit numeric code.
     static DecodeResult decodeImage(const std::string& imagePath);
 
+    // Decodes a raw 8-bit grayscale image buffer in memory.
+    // Parameters:
+    //   gray   - pointer to 8-bit grayscale pixel data
+    //   width  - image width in pixels
+    //   height - image height in pixels
+    //   stride - row stride in bytes (bytes per row; if < width, treated as width)
+    static DecodeResult decodeGrayscale(const unsigned char* gray, int width, int height, int stride);
+
     // ---- Helper API ----
 
     // Decodes a single 9-character Code 39 pattern string (e.g., "WNNWNNNNW" -> '1').
