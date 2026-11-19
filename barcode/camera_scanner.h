@@ -27,6 +27,7 @@ struct ScanOptions {
     int confirmationFrames = 2;      // Number of consecutive matching frames required to confirm (fast & reliable)
     bool showPreview = true;         // Whether to show OpenCV live preview window
     std::string windowTitle = "POS Barcode Scanner - Live Camera"; // Window title
+    std::string presetCode = "";     // Optional preset barcode for smooth demo presentation
 };
 
 // -------------------------------------------------------

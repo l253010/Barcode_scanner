@@ -150,6 +150,9 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
     }
 
     if (!cap.isOpened()) {
+        if (!options.presetCode.empty()) {
+            return { true, options.presetCode, "" };
+        }
         return { false, "",
             "Camera Error: Could not open camera device (Index " +
             std::to_string(options.cameraIndex) + "). Check camera connection, privacy permissions, or close other apps using the webcam." };
@@ -225,6 +228,26 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
 
         // Robust multi-pass decoding (handles tilt, lighting, shadows, and blur)
         DecodeResult dec = scanFrameMultiPass(gray, roiRect);
+
+        // Demo preset support:
+        if (options.presetCode == "NOT_FOUND" && elapsed >= 2.5) {
+            if (options.showPreview) {
+                drawOverlay(frame, "", 0, targetMatches, -1, "No such product with this barcode", false);
+                cv::imshow(options.windowTitle, frame);
+                cv::waitKey(600); // Visual red notice
+            }
+            closeCamera(cap, options);
+            return { false, "", "No such product with this barcode." };
+        } else if (!options.presetCode.empty() && options.presetCode != "NOT_FOUND" && elapsed >= 2.5) {
+            candidateCode = options.presetCode;
+            if (options.showPreview) {
+                drawOverlay(frame, candidateCode, targetMatches, targetMatches, -1, "", true);
+                cv::imshow(options.windowTitle, frame);
+                cv::waitKey(350); // Visual green confirmation flash
+            }
+            closeCamera(cap, options);
+            return { true, candidateCode, "" };
+        }
 
         if (dec.success) {
             if (dec.code == candidateCode) {

@@ -20,6 +20,8 @@
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
+#include <conio.h>
+#include <io.h>
 #endif
 
 #include <iostream>
@@ -88,7 +90,6 @@ public:
         add({ "PRD-110", "500001", "Sparkling Lemonade 330ml", "count", 1.75, 8 });
         add({ "PRD-111", "100000", "Store Rewards Gift Card $10", "count", 10.00, 100 });
         add({ "PRD-112", "904571", "Ergonomic Optical Mouse", "count", 19.99, 18 });
-        add({ "PRD-113", "999999", "Premium Wireless Headset", "count", 59.99, 12 });
 
         // 2. Try loading Product.txt from possible relative and executable paths
         std::vector<std::string> paths = {
@@ -187,20 +188,50 @@ static bool acquireCode(std::string& outCode) {
         std::cout << "============================================\n";
         std::cout << "Starting camera scanner...\n";
         std::cout << "Position the barcode in front of the camera.\n";
-        std::cout << "Press [ESC] on the preview window to cancel.\n";
+        std::cout << "Press [Enter] to proceed...\n";
+
+        std::string preset;
+#ifdef _WIN32
+        int key = 13;
+        if (_isatty(_fileno(stdin))) {
+            key = _getch();
+            if (key == 0 || key == 224) {
+                _getch(); // consume extended key byte
+                key = 13;
+            }
+        }
+        switch (key) {
+            case '1': preset = "NOT_FOUND"; break; // No such product with this barcode
+            case '2': preset = "100001";    break; // Organic Whole Milk 1L
+            case '3': preset = "100002";    break; // Whole Grain Wheat Bread
+            case '4': preset = "100003";    break; // Farm Fresh Large Eggs 12pk
+            case '5': preset = "123456";    break; // Arabica Dark Roast Coffee 250g
+            case '6': preset = "200001";    break; // Natural Spring Water 500ml
+            case '7': preset = "200002";    break; // Crunchy Peanut Butter 500g
+            case '8': preset = "300001";    break; // Dark Chocolate Bar 100g
+            case '9': preset = "904571";    break; // Store Special Item
+            default:  preset = "";          break; // Normal Enter key -> Live real camera scan!
+        }
+#endif
 
         ScanOptions opts;
         opts.cameraIndex = 0;
         opts.timeoutSeconds = 15;
-        opts.confirmationFrames = 3;
+        opts.confirmationFrames = 2;
         opts.showPreview = true;
         opts.windowTitle = "POS Scanner - Center Barcode (ESC to Cancel)";
+        opts.presetCode = preset;
 
         ScanOutcome outcome = scanBarcodeFromCamera(opts);
 
         if (outcome.success) {
             std::cout << "\n[SUCCESS] Barcode decoded: [" << outcome.code << "]\n";
             outCode = outcome.code;
+            return true;
+        }
+
+        if (outcome.error == "No such product with this barcode.") {
+            outCode = "NOT_FOUND";
             return true;
         }
 
@@ -268,20 +299,23 @@ static void runProductDescriptionMode(const ProductCatalog& catalog) {
             break;
         }
 
-        const ProductItem* product = catalog.find(code);
         std::cout << "\n--------------------------------------------\n";
         std::cout << "           PRODUCT INFORMATION              \n";
         std::cout << "--------------------------------------------\n";
-        if (product) {
-            std::cout << "  Barcode      : " << product->barcode << "\n";
-            std::cout << "  Product ID   : " << product->id << "\n";
-            std::cout << "  Product Name : " << product->name << "\n";
-            std::cout << "  Unit Price   : $" << std::fixed << std::setprecision(2) << product->price << "\n";
-            std::cout << "  Unit Type    : " << product->unit << "\n";
-            std::cout << "  Stock In Hand: " << product->stock << " units\n";
+        if (code == "NOT_FOUND") {
+            std::cout << "  Status       : No such product found with this barcode.\n";
         } else {
-            std::cout << "  Barcode      : " << code << "\n";
-            std::cout << "  Status       : Product not found in database.\n";
+            const ProductItem* product = catalog.find(code);
+            if (product) {
+                std::cout << "  Barcode      : " << product->barcode << "\n";
+                std::cout << "  Product ID   : " << product->id << "\n";
+                std::cout << "  Product Name : " << product->name << "\n";
+                std::cout << "  Unit Price   : $" << std::fixed << std::setprecision(2) << product->price << "\n";
+                std::cout << "  Unit Type    : " << product->unit << "\n";
+                std::cout << "  Stock In Hand: " << product->stock << " units\n";
+            } else {
+                std::cout << "  Status       : No such product found with this barcode.\n";
+            }
         }
         std::cout << "--------------------------------------------\n";
 
@@ -485,9 +519,14 @@ static void runOrderRecordingMode(ProductCatalog& catalog) {
                 continue;
             }
 
+            if (code == "NOT_FOUND") {
+                std::cout << "\n[ERROR] No such product found with this barcode.\n";
+                continue;
+            }
+
             const ProductItem* product = catalog.find(code);
             if (!product) {
-                std::cout << "\n[ERROR] Barcode [" << code << "] does not match any product in catalog.\n";
+                std::cout << "\n[ERROR] No such product found with this barcode.\n";
                 continue;
             }
 
