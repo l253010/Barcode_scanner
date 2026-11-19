@@ -23,8 +23,8 @@
 // -------------------------------------------------------
 struct ScanOptions {
     int cameraIndex = 0;             // Camera device index (0 for default webcam)
-    int timeoutSeconds = 15;         // Timeout duration in seconds (<= 0 for unlimited)
-    int confirmationFrames = 3;      // Number of consecutive matching frames required to confirm
+    int timeoutSeconds = 20;         // Timeout duration in seconds (<= 0 for unlimited)
+    int confirmationFrames = 2;      // Number of consecutive matching frames required to confirm (fast & reliable)
     bool showPreview = true;         // Whether to show OpenCV live preview window
     std::string windowTitle = "POS Barcode Scanner - Live Camera"; // Window title
 };

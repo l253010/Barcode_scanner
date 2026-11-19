@@ -17,6 +17,11 @@
 #include "camera_scanner.h"
 #include "BarcodeGenerator.h"
 
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -44,6 +49,7 @@ struct ProductItem {
 class ProductCatalog {
 private:
     std::unordered_map<std::string, ProductItem> m_database;
+    std::string m_catalogFilePath;
 
 public:
     void add(const ProductItem& item) {
@@ -62,6 +68,12 @@ public:
         return m_database.size();
     }
 
+    std::string getLoadedPath() const {
+        return m_catalogFilePath;
+    }
+
+    bool deductStockAndSave(const std::vector<struct OrderLineItem>& cart, std::string* outMsg);
+
     void load() {
         // 1. Seed with standard catalog and known sample barcodes
         add({ "PRD-101", "100001", "Organic Whole Milk 1L", "count", 3.49, 50 });
@@ -78,17 +90,32 @@ public:
         add({ "PRD-112", "904571", "Ergonomic Optical Mouse", "count", 19.99, 18 });
         add({ "PRD-113", "999999", "Premium Wireless Headset", "count", 59.99, 12 });
 
-        // 2. Try loading Product.txt from possible relative paths
-        const std::string paths[] = {
+        // 2. Try loading Product.txt from possible relative and executable paths
+        std::vector<std::string> paths = {
             "Product.txt",
             "product_module/Product.txt",
             "../product_module/Product.txt",
-            "../../product_module/Product.txt"
+            "../../product_module/Product.txt",
+            "D:/barcode_scanner/product_module/Product.txt",
+            "D:/barcode_scanner/barcode/Product.txt"
         };
+#ifdef _WIN32
+        char exeBuf[MAX_PATH];
+        if (GetModuleFileNameA(NULL, exeBuf, MAX_PATH) > 0) {
+            std::string exeStr(exeBuf);
+            size_t slash = exeStr.find_last_of("\\/");
+            if (slash != std::string::npos) {
+                std::string baseDir = exeStr.substr(0, slash);
+                paths.insert(paths.begin(), baseDir + "\\Product.txt");
+                paths.insert(paths.begin() + 1, baseDir + "\\..\\product_module\\Product.txt");
+            }
+        }
+#endif
 
         for (const auto& path : paths) {
             std::ifstream file(path);
             if (!file.is_open()) continue;
+            m_catalogFilePath = path;
 
             std::string line;
             while (std::getline(file, line)) {
@@ -277,9 +304,155 @@ struct OrderLineItem {
 };
 
 // -------------------------------------------------------
+// ProductCatalog::deductStockAndSave()
+// Deducts purchased quantities from in-memory catalog AND
+// persists updated available stock directly to Product.txt.
+// -------------------------------------------------------
+bool ProductCatalog::deductStockAndSave(const std::vector<OrderLineItem>& cart, std::string* outMsg) {
+    // 1. Update in-memory stock
+    for (const auto& item : cart) {
+        auto it = m_database.find(item.product.barcode);
+        if (it != m_database.end()) {
+            it->second.stock = (it->second.stock >= item.quantity) ? (it->second.stock - item.quantity) : 0;
+        }
+    }
+
+    // 2. Determine target file path
+    std::string targetPath = m_catalogFilePath;
+    if (targetPath.empty()) {
+        std::vector<std::string> paths = {
+            "Product.txt",
+            "product_module/Product.txt",
+            "../product_module/Product.txt",
+            "../../product_module/Product.txt",
+            "D:/barcode_scanner/product_module/Product.txt",
+            "D:/barcode_scanner/barcode/Product.txt"
+        };
+#ifdef _WIN32
+        char exeBuf[MAX_PATH];
+        if (GetModuleFileNameA(NULL, exeBuf, MAX_PATH) > 0) {
+            std::string exeStr(exeBuf);
+            size_t slash = exeStr.find_last_of("\\/");
+            if (slash != std::string::npos) {
+                std::string baseDir = exeStr.substr(0, slash);
+                paths.insert(paths.begin(), baseDir + "\\Product.txt");
+                paths.insert(paths.begin() + 1, baseDir + "\\..\\product_module\\Product.txt");
+            }
+        }
+#endif
+        for (const auto& p : paths) {
+            std::ifstream test(p);
+            if (test.good()) {
+                targetPath = p;
+                break;
+            }
+        }
+    }
+    if (targetPath.empty()) {
+        targetPath = "Product.txt";
+    }
+
+    std::ifstream inFile(targetPath);
+    if (!inFile.is_open()) {
+        if (outMsg) *outMsg = "Product.txt not found on disk. In-memory stock was updated.";
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string rawLine;
+    while (std::getline(inFile, rawLine)) {
+        lines.push_back(rawLine);
+    }
+    inFile.close();
+
+    // 3. Update stock field in matching lines
+    for (auto& line : lines) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::istringstream iss(line);
+        std::string pid, barcode, acronym;
+        if (!(iss >> pid >> barcode >> acronym)) continue;
+
+        int qtySold = 0;
+        for (const auto& item : cart) {
+            if (item.product.barcode == barcode) {
+                qtySold += item.quantity;
+            }
+        }
+        if (qtySold == 0) continue;
+
+        std::vector<std::string> tokens;
+        std::istringstream tokStream(line);
+        std::string t;
+        while (tokStream >> t) {
+            tokens.push_back(t);
+        }
+
+        int hashIdx = -1;
+        for (int i = 0; i < static_cast<int>(tokens.size()); ++i) {
+            if (tokens[static_cast<size_t>(i)] == "#") {
+                hashIdx = i;
+                break;
+            }
+        }
+        if (hashIdx >= 3) {
+            int stockIdx = hashIdx - 2;
+            try {
+                int currentStock = std::stoi(tokens[static_cast<size_t>(stockIdx)]);
+                int newStock = (currentStock >= qtySold) ? (currentStock - qtySold) : 0;
+                tokens[static_cast<size_t>(stockIdx)] = std::to_string(newStock);
+
+                std::ostringstream rebuilt;
+                for (size_t i = 0; i < tokens.size(); ++i) {
+                    if (i > 0) rebuilt << " ";
+                    rebuilt << tokens[i];
+                }
+                line = rebuilt.str();
+            } catch (...) {}
+        }
+    }
+
+    // 4. Save to targetPath
+    std::ofstream outFile(targetPath, std::ios::trunc);
+    if (!outFile.is_open()) {
+        if (outMsg) *outMsg = "Failed to open " + targetPath + " for writing.";
+        return false;
+    }
+    for (const auto& l : lines) {
+        outFile << l << "\n";
+    }
+    outFile.close();
+
+    // 5. Also sync to other candidate locations if they exist
+    const std::string syncPaths[] = {
+        "Product.txt",
+        "product_module/Product.txt",
+        "../product_module/Product.txt",
+        "../../product_module/Product.txt"
+    };
+    for (const auto& sp : syncPaths) {
+        if (sp != targetPath) {
+            std::ifstream test(sp);
+            if (test.good()) {
+                test.close();
+                std::ofstream syncOut(sp, std::ios::trunc);
+                if (syncOut.is_open()) {
+                    for (const auto& l : lines) {
+                        syncOut << l << "\n";
+                    }
+                }
+            }
+        }
+    }
+
+    if (outMsg) *outMsg = "Product.txt inventory successfully updated on disk.";
+    return true;
+}
+
+// -------------------------------------------------------
 // Mode 2: Order Recording Mode
 // -------------------------------------------------------
-static void runOrderRecordingMode(const ProductCatalog& catalog) {
+static void runOrderRecordingMode(ProductCatalog& catalog) {
     std::cout << "\n============================================\n";
     std::cout << "          MODE 2: ORDER RECORDING           \n";
     std::cout << "============================================\n";
@@ -384,6 +557,11 @@ static void runOrderRecordingMode(const ProductCatalog& catalog) {
         std::cout << "\n[EMPTY ORDER] No items were added to the order.\n";
         return;
     }
+
+    // Deduct stock from Product.txt on disk
+    std::string stockUpdateMsg;
+    catalog.deductStockAndSave(cart, &stockUpdateMsg);
+    std::cout << "\n>> [INVENTORY UPDATE] " << stockUpdateMsg << "\n";
 
     // -------------------------------------------------------
     // End of Order Summary Receipt

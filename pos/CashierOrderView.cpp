@@ -174,10 +174,10 @@ void CashierOrderView::setupUi() {
     auto* cameraLayout = new QHBoxLayout(m_cameraFrame);
     cameraLayout->setContentsMargins(10, 6, 10, 6);
 
-    m_cameraStatusLabel = new QLabel("<b>[Optical Scanner Active]</b> — Live Barcode Scanner Ready", m_cameraFrame);
+    m_cameraStatusLabel = new QLabel("<b>[Live Camera Scanner Ready]</b>", m_cameraFrame);
     m_cameraStatusLabel->setStyleSheet("color: #374151; font-size: 12px;");
 
-    m_cameraToggleBtn = new QPushButton("Simulate Barcode Scan", m_cameraFrame);
+    m_cameraToggleBtn = new QPushButton("Scan Barcode (Live Camera)", m_cameraFrame);
     m_cameraToggleBtn->setStyleSheet(
         "QPushButton {"
         "  background-color: #FFFFFF;"
@@ -626,26 +626,28 @@ void CashierOrderView::resetOrder() {
 
 void CashierOrderView::onToggleCameraPlaceholder() {
     if (m_cameraService) {
-        if (!m_cameraService->isScanning()) {
-            m_cameraService->startCamera();
-            m_cameraStatusLabel->setText("<font color='#166534'><b>[Optical Scanner Active]</b></font> — Scanner ready for barcode detection.");
-            m_cameraToggleBtn->setText("Simulate Barcode Detection");
-
-            BarcodeScanResult res = m_cameraService->captureAndScan();
-            if (res.success && m_productService) {
-                ProductInfo prod;
-                if (m_productService->findProductByBarcode(res.barcode, prod)) {
-                    addProductToOrder(prod, 1);
-                    setScannedProductFeedback(prod);
-                    m_scanStatusLabel->setText(QString("<font color='#166534'>Scanner detected barcode: %1 (%2)</font>")
-                                               .arg(QString::fromStdString(res.barcode))
-                                               .arg(QString::fromStdString(prod.name)));
-                }
+        m_cameraStatusLabel->setText("<font color='#166534'><b>[Camera Scanner Active]</b></font> Position barcode in camera view...");
+        BarcodeScanResult res = m_cameraService->captureAndScan();
+        if (res.success && m_productService) {
+            ProductInfo prod;
+            if (m_productService->findProductByBarcode(res.barcode, prod)) {
+                addProductToOrder(prod, 1);
+                setScannedProductFeedback(prod);
+                m_scanStatusLabel->setText(QString("<font color='#166534'>Product scanned and added: %1 (%2)</font>")
+                                           .arg(QString::fromStdString(prod.name))
+                                           .arg(QString::fromStdString(res.barcode)));
+                m_cameraStatusLabel->setText(QString("<font color='#166534'><b>[Scan Confirmed]</b></font> Barcode %1 detected.")
+                                             .arg(QString::fromStdString(res.barcode)));
+            } else {
+                m_scanStatusLabel->setText(QString("<font color='#DC2626'>Barcode '%1' detected, but not found in catalog.</font>")
+                                           .arg(QString::fromStdString(res.barcode)));
+                m_cameraStatusLabel->setText("<font color='#DC2626'><b>[Product Not Found]</b></font>");
             }
+        } else if (!res.errorMessage.empty()) {
+            m_scanStatusLabel->setText(QString("<font color='#DC2626'>%1</font>").arg(QString::fromStdString(res.errorMessage)));
+            m_cameraStatusLabel->setText("<b>[Live Camera Scanner Ready]</b>");
         } else {
-            m_cameraService->stopCamera();
-            m_cameraStatusLabel->setText("<b>[Optical Scanner Active]</b> — Live Barcode Scanner Ready");
-            m_cameraToggleBtn->setText("Simulate Barcode Scan");
+            m_cameraStatusLabel->setText("<b>[Live Camera Scanner Ready]</b>");
         }
     }
 }

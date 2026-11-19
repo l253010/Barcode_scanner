@@ -5,6 +5,7 @@
 #include "BillPreviewView.h"
 #include "PaymentView.h"
 #include "ManagerView.h"
+#include "CameraScannerService.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -15,6 +16,7 @@
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_mockService = std::make_unique<MockDataService>();
     m_productBillingService = std::make_unique<ProductBillingService>();
+    m_cameraService = std::make_unique<CameraScannerService>();
     setupUi();
     navigateToScreen(0); // Start on Dashboard
 }
@@ -205,13 +207,13 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_dashboardView);
 
     // Screen 1: Cashier / New Order
-    m_cashierView = new CashierOrderView(m_productBillingService.get(), m_productBillingService.get(), m_mockService.get(), this);
+    m_cashierView = new CashierOrderView(m_productBillingService.get(), m_productBillingService.get(), m_cameraService.get(), this);
     connect(m_cashierView, &CashierOrderView::billGenerated, this, &MainWindow::onBillGenerated);
     connect(m_cashierView, &CashierOrderView::inspectProductRequested, this, &MainWindow::onInspectProductRequested);
     m_stack->addWidget(m_cashierView);
 
     // Screen 2: Product Description
-    m_descView = new ProductDescriptionView(m_productBillingService.get(), this);
+    m_descView = new ProductDescriptionView(m_productBillingService.get(), m_cameraService.get(), this);
     connect(m_descView, &ProductDescriptionView::addProductToCart, this, &MainWindow::onAddProductToCartRequested);
     connect(m_descView, &ProductDescriptionView::backToCashierRequested, [this]() { navigateToScreen(1); });
     m_stack->addWidget(m_descView);
