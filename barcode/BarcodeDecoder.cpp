@@ -46,7 +46,7 @@ struct ScanlineBuffer {
     Run*  runs;
     Run*  reverseRuns;
 
-    ScanlineBuffer(UINT width) {
+    ScanlineBuffer(size_t width) {
         luminance   = new int[width];
         isBar       = new bool[width];
         runs        = new Run[width];
@@ -170,26 +170,23 @@ static bool TryDecodeFromRuns(const Run* runs, int runCount, DecodeResult& outRe
         // Start '*' pattern is "NWNNWNWNN":
         // Narrow elements: 0, 2, 3, 5, 7, 8 (6 elements)
         // Wide elements:   1, 4, 6          (3 elements)
-        int narrowMax = runs[startIdx + 0].width;
-        narrowMax = max_val(narrowMax, runs[startIdx + 2].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 3].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 5].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 7].width);
-        narrowMax = max_val(narrowMax, runs[startIdx + 8].width);
+        int narrowSum = runs[startIdx + 0].width + runs[startIdx + 2].width +
+                        runs[startIdx + 3].width + runs[startIdx + 5].width +
+                        runs[startIdx + 7].width + runs[startIdx + 8].width;
+        int wideSum   = runs[startIdx + 1].width + runs[startIdx + 4].width + runs[startIdx + 6].width;
 
-        int wideMin = runs[startIdx + 1].width;
-        wideMin = min_val(wideMin, runs[startIdx + 4].width);
-        wideMin = min_val(wideMin, runs[startIdx + 6].width);
+        double narrowAvg = narrowSum / 6.0;
+        double wideAvg   = wideSum / 3.0;
 
-        // Wide elements must be noticeably wider than narrow elements
-        if (wideMin <= narrowMax) {
+        // Wide elements must be noticeably wider than narrow elements (standard ratio ~2.0 - 3.0)
+        if (wideAvg < narrowAvg * 1.35 || narrowAvg < 0.5) {
             continue;
         }
 
-        double threshold = (narrowMax + wideMin) / 2.0;
+        double threshold = (narrowAvg + wideAvg) / 2.0;
 
         // Gap after start character must be a space of narrow width
-        if (runs[startIdx + 9].isBar || runs[startIdx + 9].width > threshold * 1.8) {
+        if (runs[startIdx + 9].isBar || runs[startIdx + 9].width > threshold * 2.2) {
             continue;
         }
 
@@ -259,8 +256,129 @@ static bool TryDecodeFromRuns(const Run* runs, int runCount, DecodeResult& outRe
 }
 
 // -------------------------------------------------------
+// Helper: Decode Code 39 barcode from a generic scanline source
+// -------------------------------------------------------
+template <typename PixelRowFetcher>
+static DecodeResult DecodeFromScanlineSource(int width, int height, PixelRowFetcher&& fetchRow) {
+    ScanlineBuffer buffer(static_cast<size_t>(width));
+
+    const double scanFractions[] = {
+        0.50, 0.45, 0.55, 0.40, 0.60, 0.35, 0.65, 0.30, 0.70, 0.25, 0.75, 0.20, 0.80, 0.15, 0.85
+    };
+    const int numFractions = 15;
+
+    bool hasAnyContrast = false;
+    DecodeResult validationFailureResult = { false, "", "" };
+
+    for (int s = 0; s < numFractions; ++s) {
+        int y = static_cast<int>(height * scanFractions[s]);
+        if (y >= height) y = height - 1;
+
+        int minLum = 255;
+        int maxLum = 0;
+
+        fetchRow(y, buffer.luminance, minLum, maxLum);
+
+        // Check for sufficient contrast along this scanline
+        if (maxLum - minLum < 35) {
+            continue;
+        }
+        hasAnyContrast = true;
+
+        // Binarization threshold
+        int threshold = (minLum + maxLum) / 2;
+
+        for (int x = 0; x < width; ++x) {
+            buffer.isBar[x] = (buffer.luminance[x] < threshold);
+        }
+
+        // Measure consecutive pixel run lengths
+        int runCount = 0;
+        bool curBar = buffer.isBar[0];
+        int  curLen = 1;
+
+        for (int x = 1; x < width; ++x) {
+            if (buffer.isBar[x] == curBar) {
+                curLen++;
+            } else {
+                buffer.runs[runCount].isBar = curBar;
+                buffer.runs[runCount].width = curLen;
+                runCount++;
+                curBar = buffer.isBar[x];
+                curLen = 1;
+            }
+        }
+        buffer.runs[runCount].isBar = curBar;
+        buffer.runs[runCount].width = curLen;
+        runCount++;
+
+        // Forward decoding attempt
+        DecodeResult res;
+        if (TryDecodeFromRuns(buffer.runs, runCount, res)) {
+            return res; // Successfully decoded!
+        }
+        if (!res.errorMessage.empty() && validationFailureResult.errorMessage.empty()) {
+            validationFailureResult = res;
+        }
+
+        // Reverse decoding attempt (for upside-down 180° rotated barcodes)
+        for (int r = 0; r < runCount; ++r) {
+            buffer.reverseRuns[r] = buffer.runs[runCount - 1 - r];
+        }
+
+        if (TryDecodeFromRuns(buffer.reverseRuns, runCount, res)) {
+            return res;
+        }
+    }
+
+    if (!hasAnyContrast) {
+        return { false, "", "Error: No barcode detected in image (insufficient contrast or blank image)." };
+    }
+
+    if (!validationFailureResult.errorMessage.empty()) {
+        return validationFailureResult;
+    }
+
+    return { false, "", "Error: Unreadable or corrupted barcode. Could not detect valid Code 39 start/stop delimiters." };
+}
+
+// -------------------------------------------------------
+// decodeGrayscale()
+// Decodes a raw in-memory 8-bit grayscale image buffer.
+// -------------------------------------------------------
+DecodeResult BarcodeDecoder::decodeGrayscale(const unsigned char* gray, int width, int height, int stride) {
+    if (!gray) {
+        return { false, "", "Error: Grayscale image buffer is null." };
+    }
+
+    if (width < 30 || height < 10) {
+        return { false, "", "Error: Image dimensions (" + std::to_string(width) + "x" +
+                            std::to_string(height) + ") are too small to contain a readable barcode." };
+    }
+
+    if (width > 10000 || height > 10000) {
+        return { false, "", "Error: Image dimensions (" + std::to_string(width) + "x" +
+                            std::to_string(height) + ") exceed maximum supported resolution." };
+    }
+
+    if (stride < width) {
+        stride = width;
+    }
+
+    return DecodeFromScanlineSource(width, height, [&](int y, int* lumOut, int& minL, int& maxL) {
+        const unsigned char* row = gray + static_cast<size_t>(y) * static_cast<size_t>(stride);
+        for (int x = 0; x < width; ++x) {
+            int lum = static_cast<int>(row[x]);
+            lumOut[x] = lum;
+            if (lum < minL) minL = lum;
+            if (lum > maxL) maxL = lum;
+        }
+    });
+}
+
+// -------------------------------------------------------
 // decodeImage()
-// Main public API function to load an image and decode it.
+// Main public API function to load an image from disk and decode it.
 // -------------------------------------------------------
 DecodeResult BarcodeDecoder::decodeImage(const std::string& imagePath) {
     if (imagePath.empty()) {
@@ -310,95 +428,18 @@ DecodeResult BarcodeDecoder::decodeImage(const std::string& imagePath) {
                             std::to_string(height) + ") exceed maximum supported resolution." };
     }
 
-    // Step 4: Dynamically allocate memory sized to the exact image width (zero <vector>)
-    // RAII guarantees all memory is released cleanly on any return path.
-    ScanlineBuffer buffer(width);
-
-    // Step 5: Sample horizontal scanlines across multiple image heights
-    const double scanFractions[] = { 0.50, 0.40, 0.60, 0.30, 0.70 };
-    const int numFractions = 5;
-
-    bool hasAnyContrast = false;
-    DecodeResult validationFailureResult = { false, "", "" };
-
-    for (int s = 0; s < numFractions; ++s) {
-        UINT y = static_cast<UINT>(height * scanFractions[s]);
-        if (y >= height) y = height - 1;
-
-        int minLum = 255;
-        int maxLum = 0;
-
-        for (UINT x = 0; x < width; ++x) {
-            Gdiplus::Color color;
-            bitmap.GetPixel(x, y, &color);
-            // Grayscale luminance formula: Y = 0.299*R + 0.587*G + 0.114*B
-            int lum = static_cast<int>(0.299 * color.GetR() + 0.587 * color.GetG() + 0.114 * color.GetB());
-            buffer.luminance[x] = lum;
-            if (lum < minLum) minLum = lum;
-            if (lum > maxLum) maxLum = lum;
-        }
-
-        // Check for sufficient contrast along this scanline
-        if (maxLum - minLum < 35) {
-            continue;
-        }
-        hasAnyContrast = true;
-
-        // Binarization threshold
-        int threshold = (minLum + maxLum) / 2;
-
-        for (UINT x = 0; x < width; ++x) {
-            buffer.isBar[x] = (buffer.luminance[x] < threshold);
-        }
-
-        // Measure consecutive pixel run lengths
-        int runCount = 0;
-        bool curBar = buffer.isBar[0];
-        int  curLen = 1;
-
-        for (UINT x = 1; x < width; ++x) {
-            if (buffer.isBar[x] == curBar) {
-                curLen++;
-            } else {
-                buffer.runs[runCount].isBar = curBar;
-                buffer.runs[runCount].width = curLen;
-                runCount++;
-                curBar = buffer.isBar[x];
-                curLen = 1;
+    return DecodeFromScanlineSource(static_cast<int>(width), static_cast<int>(height),
+        [&](int y, int* lumOut, int& minL, int& maxL) {
+            for (UINT x = 0; x < width; ++x) {
+                Gdiplus::Color color;
+                bitmap.GetPixel(x, static_cast<UINT>(y), &color);
+                // Grayscale luminance formula: Y = 0.299*R + 0.587*G + 0.114*B
+                int lum = static_cast<int>(0.299 * color.GetR() + 0.587 * color.GetG() + 0.114 * color.GetB());
+                lumOut[x] = lum;
+                if (lum < minL) minL = lum;
+                if (lum > maxL) maxL = lum;
             }
-        }
-        buffer.runs[runCount].isBar = curBar;
-        buffer.runs[runCount].width = curLen;
-        runCount++;
-
-        // Forward decoding attempt
-        DecodeResult res;
-        if (TryDecodeFromRuns(buffer.runs, runCount, res)) {
-            return res; // Successfully decoded!
-        }
-        if (!res.errorMessage.empty() && validationFailureResult.errorMessage.empty()) {
-            validationFailureResult = res;
-        }
-
-        // Reverse decoding attempt (for upside-down 180° rotated barcodes)
-        for (int r = 0; r < runCount; ++r) {
-            buffer.reverseRuns[r] = buffer.runs[runCount - 1 - r];
-        }
-
-        if (TryDecodeFromRuns(buffer.reverseRuns, runCount, res)) {
-            return res;
-        }
-    }
-
-    if (!hasAnyContrast) {
-        return { false, "", "Error: No barcode detected in image (insufficient contrast or blank image)." };
-    }
-
-    if (!validationFailureResult.errorMessage.empty()) {
-        return validationFailureResult;
-    }
-
-    return { false, "", "Error: Unreadable or corrupted barcode. Could not detect valid Code 39 start/stop delimiters." };
+        });
 
 #else
     return { false, "", "Error: Windows GDI+ is required for image reading." };

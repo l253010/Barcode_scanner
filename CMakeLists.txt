@@ -19,6 +19,15 @@ set(CMAKE_AUTORCC ON)
 # Find Qt 6 Widgets using standard CMake package discovery
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
 
+# Find OpenCV for camera barcode scanning
+find_package(OpenCV QUIET)
+if(NOT OpenCV_FOUND)
+    if(EXISTS "C:/Users/AR COMPUTER/Downloads/opencv/build")
+        set(OpenCV_DIR "C:/Users/AR COMPUTER/Downloads/opencv/build")
+        find_package(OpenCV REQUIRED)
+    endif()
+endif()
+
 # Portable compiler warning and encoding flags
 if(MSVC)
     add_compile_options(/W4 /utf-8)
@@ -49,6 +58,14 @@ set(POS_SOURCES
     product_module/Billing.h
     product_module/Billing.cpp
 
+    # Camera Scanner & Real Barcode Decoding Integration
+    barcode/BarcodeDecoder.h
+    barcode/BarcodeDecoder.cpp
+    barcode/camera_scanner.h
+    barcode/camera_scanner.cpp
+    pos/CameraScannerService.h
+    pos/CameraScannerService.cpp
+
     # Screens
     pos/DashboardView.h
     pos/DashboardView.cpp
@@ -76,11 +93,13 @@ target_include_directories(pos_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pos
     ${CMAKE_CURRENT_SOURCE_DIR}/barcode
     ${CMAKE_CURRENT_SOURCE_DIR}/product_module
+    ${OpenCV_INCLUDE_DIRS}
 )
 
-# Link against Qt6 Widgets
+# Link against Qt6 Widgets and OpenCV
 target_link_libraries(pos_app PRIVATE
     Qt6::Widgets
+    ${OpenCV_LIBS}
 )
 
 # On Windows Release builds, suppress console window
