@@ -248,6 +248,35 @@ int main() {
                     "Checkout deduction (37 units) persisted to disk and reloaded after restart");
     }
 
+    // TEST 20: Portable Canonical Path Resolution for Product.txt
+    std::cout << "\n=== TEST 20: Portable Canonical Path Resolution ===\n";
+    std::string canonicalResolved = ProductBillingService::resolveProductFilePath();
+    TEST_ASSERT(!canonicalResolved.empty(), "resolveProductFilePath() finds valid path");
+    TEST_ASSERT(canonicalResolved.find("Product.txt") != std::string::npos, "Resolved path targets Product.txt");
+
+    // TEST 21: Prevention of Duplicate Stock Deduction on Paid Bill
+    std::cout << "\n=== TEST 21: Prevention of Duplicate Stock Deduction ===\n";
+    int prePaidStock = service.getProductManager().getStock("100001");
+    BillInfo paidBill = lemonBill;
+    paidBill.paymentStatus = "Paid";
+    bool dupCommit = service.commitOrderStock(paidBill);
+    TEST_ASSERT(dupCommit, "commitOrderStock returns true without deducting for already paid bill");
+    TEST_ASSERT(service.getProductManager().getStock("100001") == prePaidStock,
+                "Stock was NOT deducted twice when bill is marked Paid");
+
+    // TEST 22: Insufficient Stock Rejection
+    std::cout << "\n=== TEST 22: Insufficient Stock Rejection ===\n";
+    std::vector<OrderItem> excessCart;
+    OrderItem excessItem;
+    excessItem.product = lemonInfo;
+    excessItem.quantity = 999999;
+    excessCart.push_back(excessItem);
+    BillInfo excessBill = service.generateBill("Excess Customer", "", excessCart);
+    std::string excessErr;
+    bool excessResult = service.commitOrderStock(excessBill, &excessErr);
+    TEST_ASSERT(!excessResult, "commitOrderStock safely rejects order with quantity exceeding stock");
+    TEST_ASSERT(!excessErr.empty(), "commitOrderStock provides detailed insufficient stock error message");
+
     // Restore baseline stock levels for clean state
     service.updateProductStock("100001", 50);
     service.updateProductStock("100002", 40);

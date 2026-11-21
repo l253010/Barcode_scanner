@@ -4,6 +4,13 @@
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include <filesystem>
+
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#endif
 
 ProductBillingService::ProductBillingService() {
     loadCatalog();
@@ -13,29 +20,68 @@ ProductBillingService::ProductBillingService(const std::string& catalogFilePath)
     loadCatalog(catalogFilePath);
 }
 
-bool ProductBillingService::loadCatalog(const std::string& filePath) {
-    std::vector<std::string> candidatePaths;
-    if (!filePath.empty()) {
-        candidatePaths.push_back(filePath);
-    }
-    candidatePaths.push_back("product_module/Product.txt");
-    candidatePaths.push_back("../product_module/Product.txt");
-    candidatePaths.push_back("../../product_module/Product.txt");
-    candidatePaths.push_back("Product.txt");
-    candidatePaths.push_back("../Product.txt");
+std::string ProductBillingService::resolveProductFilePath(const std::string& explicitPath) {
+    std::vector<std::string> candidates;
 
-    bool loaded = false;
-    for (const auto& path : candidatePaths) {
-        std::ifstream testFile(path);
-        if (testFile.good()) {
-            testFile.close();
-            std::string status;
-            if (m_productManager.loadFromFile(path, &status)) {
-                loaded = true;
-                break;
+    // 1. Explicit path if specified
+    if (!explicitPath.empty()) {
+        candidates.push_back(explicitPath);
+    }
+
+    // 2. Discover relative to Qt Application Executable Directory
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+    if (QCoreApplication::instance()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        candidates.push_back(QDir(appDir).filePath("product_module/Product.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../product_module/Product.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../../product_module/Product.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("Product.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../Product.txt").toStdString());
+    }
+#endif
+
+    // 3. Discover relative to Current Working Directory
+    candidates.push_back("product_module/Product.txt");
+    candidates.push_back("../product_module/Product.txt");
+    candidates.push_back("../../product_module/Product.txt");
+    candidates.push_back("Product.txt");
+    candidates.push_back("../Product.txt");
+
+    // First, find an existing Product.txt file and resolve to canonical absolute path
+    for (const auto& cand : candidates) {
+        std::error_code ec;
+        if (std::filesystem::exists(cand, ec) && !std::filesystem::is_directory(cand, ec)) {
+            auto can = std::filesystem::canonical(cand, ec);
+            if (!ec) {
+                return can.string();
             }
+            auto abs = std::filesystem::absolute(cand, ec);
+            if (!ec) {
+                return abs.string();
+            }
+            return cand;
         }
     }
+
+    // Fallback if no file exists yet: locate parent repository directory to target product_module/Product.txt
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+    if (QCoreApplication::instance()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QDir parentDir(appDir);
+        parentDir.cdUp();
+        if (parentDir.exists("product_module")) {
+            return parentDir.filePath("product_module/Product.txt").toStdString();
+        }
+    }
+#endif
+
+    return "product_module/Product.txt";
+}
+
+bool ProductBillingService::loadCatalog(const std::string& filePath) {
+    std::string canonicalPath = resolveProductFilePath(filePath);
+    std::string status;
+    bool loaded = m_productManager.loadFromFile(canonicalPath, &status);
 
     if (!loaded || m_productManager.getProductCount() == 0) {
         initFallbackCatalog();
@@ -201,7 +247,7 @@ BillInfo ProductBillingService::generateBill(const std::string& customerName,
 bool ProductBillingService::saveCatalog(std::string* errorMsg) {
     std::string primaryPath = m_productManager.getLastLoadedFilePath();
     if (primaryPath.empty()) {
-        primaryPath = "product_module/Product.txt";
+        primaryPath = resolveProductFilePath();
     }
 
     std::string status;
@@ -210,19 +256,27 @@ bool ProductBillingService::saveCatalog(std::string* errorMsg) {
         return false;
     }
 
-    // Also sync to other known relative locations if they exist and are distinct
-    const char* secondaryPaths[] = {
-        "product_module/Product.txt",
-        "../../product_module/Product.txt",
-        "../product_module/Product.txt",
-        "Product.txt"
-    };
+    // Also sync secondary copies if they exist and are distinct files
+    std::vector<std::string> secondaryCandidates;
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+    if (QCoreApplication::instance()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        secondaryCandidates.push_back(QDir(appDir).filePath("Product.txt").toStdString());
+        secondaryCandidates.push_back(QDir(appDir).filePath("../Product.txt").toStdString());
+    }
+#endif
+    secondaryCandidates.push_back("Product.txt");
+    secondaryCandidates.push_back("product_module/Product.txt");
 
-    for (const char* secPath : secondaryPaths) {
-        if (primaryPath != secPath) {
-            std::ifstream test(secPath);
-            if (test.good()) {
-                test.close();
+    std::error_code ecPrim;
+    auto primCan = std::filesystem::canonical(primaryPath, ecPrim);
+
+    for (const auto& secPath : secondaryCandidates) {
+        std::error_code ecSec;
+        if (std::filesystem::exists(secPath, ecSec) && !std::filesystem::is_directory(secPath, ecSec)) {
+            auto secCan = std::filesystem::canonical(secPath, ecSec);
+            if (!ecPrim && !ecSec && primCan != secCan) {
+                // Secondary file exists and is distinct from primary; sync to keep working trees aligned
                 m_productManager.saveToFile(secPath, nullptr);
             }
         }
@@ -270,6 +324,11 @@ bool ProductBillingService::updateProductStock(const std::string& barcode, int n
 
 bool ProductBillingService::commitOrderStock(const BillInfo& bill, std::string* errorMsg) {
     if (bill.items.empty()) {
+        return true;
+    }
+
+    // Prevent double stock deduction if this bill is already marked Paid
+    if (bill.paymentStatus == "Paid") {
         return true;
     }
 
