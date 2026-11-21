@@ -19,13 +19,24 @@ set(CMAKE_AUTORCC ON)
 # Find Qt 6 Widgets using standard CMake package discovery
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
 
-# Find OpenCV for camera barcode scanning
+# Find OpenCV for camera barcode scanning (optional – app works without it)
 find_package(OpenCV QUIET)
 if(NOT OpenCV_FOUND)
+    # Try the specific Windows path used by this team
     if(EXISTS "C:/Users/AR COMPUTER/Downloads/opencv/build")
         set(OpenCV_DIR "C:/Users/AR COMPUTER/Downloads/opencv/build")
-        find_package(OpenCV REQUIRED)
+        find_package(OpenCV QUIET)
     endif()
+endif()
+
+if(OpenCV_FOUND)
+    message(STATUS "OpenCV found: ${OpenCV_VERSION} — live camera scanner ENABLED")
+    add_compile_definitions(OPENCV_AVAILABLE)
+else()
+    message(STATUS "OpenCV NOT found — live camera scanner will be DISABLED at runtime")
+    # Provide empty stub headers/libs so camera_scanner.cpp can still compile
+    # by guarding its OpenCV includes at the source level
+    add_compile_definitions(OPENCV_NOT_AVAILABLE)
 endif()
 
 # Portable compiler warning and encoding flags
@@ -80,6 +91,10 @@ set(POS_SOURCES
     pos/ManagerView.h
     pos/ManagerView.cpp
 
+    # Order Management Module (Jav)
+    order_management/OrderModule.h
+    order_management/OrderModule.cpp
+
     # Reused Increment 1 Core Barcode Logic
     barcode/BarcodeGenerator.h
     barcode/BarcodeGenerator.cpp
@@ -93,6 +108,7 @@ target_include_directories(pos_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/pos
     ${CMAKE_CURRENT_SOURCE_DIR}/barcode
     ${CMAKE_CURRENT_SOURCE_DIR}/product_module
+    ${CMAKE_CURRENT_SOURCE_DIR}/order_management
     ${OpenCV_INCLUDE_DIRS}
 )
 

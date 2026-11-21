@@ -6,6 +6,7 @@
 #include "PaymentView.h"
 #include "ManagerView.h"
 #include "CameraScannerService.h"
+#include "OrderModule.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -306,6 +307,21 @@ void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
     }
     m_managerView->refreshCatalog();
     m_mockService->saveBill(updatedBill);
+
+    // Persist finalized transaction into Jav's OrderModule (Order.txt, OrderDetail.txt, Bill.txt)
+    std::string method = updatedBill.paymentMode;
+    if (method != "Cash" && method != "Card" && method != "Online") {
+        method = "Cash";
+    }
+    int ordId = createOrder(updatedBill.customerName, method);
+    if (ordId > 0) {
+        for (const auto& item : updatedBill.items) {
+            std::string prodId = item.product.acronym.empty() ? ("PRD-" + std::to_string(item.product.id)) : item.product.acronym;
+            addOrderDetail(ordId, prodId, item.product.barcode, item.quantity);
+        }
+        createBill(ordId, updatedBill.totalWithoutTax, updatedBill.totalDiscount, updatedBill.amountTendered, method);
+    }
+
     m_billView->loadBill(updatedBill);
     m_cashierView->resetOrder(); // Clear cart for next customer
     navigateToScreen(3); // Return to Bill Preview showing PAID status

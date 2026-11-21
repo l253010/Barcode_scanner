@@ -4,6 +4,14 @@
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QFileDialog>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QTextEdit>
+#include <QFile>
+#include <QTextStream>
+#include <iomanip>
+#include <sstream>
 
 BillPreviewView::BillPreviewView(IOrderStorageService* storageService, QWidget* parent)
     : QWidget(parent), m_storageService(storageService) {
@@ -205,11 +213,23 @@ void BillPreviewView::setupUi() {
     m_subtotalLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #1F2937; background: transparent;");
     m_subtotalLabel->setAlignment(Qt::AlignRight);
 
-    auto* discTitle = new QLabel("Total Discount:", m_invoiceFrame);
+    auto* discTitle = new QLabel("Product Discounts:", m_invoiceFrame);
     discTitle->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
     m_discountLabel = new QLabel("-Rs. 0.00", m_invoiceFrame);
     m_discountLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #166534; background: transparent;");
     m_discountLabel->setAlignment(Qt::AlignRight);
+
+    auto* seaTitle = new QLabel("Seasonal Discount:", m_invoiceFrame);
+    seaTitle->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
+    m_seasonalDiscountLabel = new QLabel("-Rs. 0.00", m_invoiceFrame);
+    m_seasonalDiscountLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #166534; background: transparent;");
+    m_seasonalDiscountLabel->setAlignment(Qt::AlignRight);
+
+    auto* speTitle = new QLabel("Special Discount:", m_invoiceFrame);
+    speTitle->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
+    m_specialDiscountLabel = new QLabel("-Rs. 0.00", m_invoiceFrame);
+    m_specialDiscountLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #166534; background: transparent;");
+    m_specialDiscountLabel->setAlignment(Qt::AlignRight);
 
     auto* taxTitle = new QLabel("Total Tax:", m_invoiceFrame);
     taxTitle->setStyleSheet("font-size: 13px; color: #4B5563; background: transparent;");
@@ -227,10 +247,14 @@ void BillPreviewView::setupUi() {
     totalsGrid->addWidget(m_subtotalLabel, 0, 1);
     totalsGrid->addWidget(discTitle, 1, 0);
     totalsGrid->addWidget(m_discountLabel, 1, 1);
-    totalsGrid->addWidget(taxTitle, 2, 0);
-    totalsGrid->addWidget(m_taxLabel, 2, 1);
-    totalsGrid->addWidget(totTitle, 3, 0);
-    totalsGrid->addWidget(m_totalPayableLabel, 3, 1);
+    totalsGrid->addWidget(seaTitle, 2, 0);
+    totalsGrid->addWidget(m_seasonalDiscountLabel, 2, 1);
+    totalsGrid->addWidget(speTitle, 3, 0);
+    totalsGrid->addWidget(m_specialDiscountLabel, 3, 1);
+    totalsGrid->addWidget(taxTitle, 4, 0);
+    totalsGrid->addWidget(m_taxLabel, 4, 1);
+    totalsGrid->addWidget(totTitle, 5, 0);
+    totalsGrid->addWidget(m_totalPayableLabel, 5, 1);
 
     totalsBox->addLayout(totalsGrid);
     invoiceLayout->addLayout(totalsBox);
@@ -255,6 +279,21 @@ void BillPreviewView::setupUi() {
     );
     connect(m_saveOrderBtn, &QPushButton::clicked, this, &BillPreviewView::onPrintOrSaveClicked);
 
+    m_printPdfBtn = new QPushButton("Print / Export Bill (PDF)", this);
+    m_printPdfBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #0284C7;"
+        "  border: none;"
+        "  color: #FFFFFF;"
+        "  font-weight: bold;"
+        "  font-size: 13px;"
+        "  padding: 10px 20px;"
+        "  border-radius: 4px;"
+        "}"
+        "QPushButton:hover { background-color: #0369A1; }"
+    );
+    connect(m_printPdfBtn, &QPushButton::clicked, this, &BillPreviewView::onPrintPdfClicked);
+
     m_proceedPaymentBtn = new QPushButton("Proceed to Payment", this);
     m_proceedPaymentBtn->setStyleSheet(
         "QPushButton {"
@@ -272,6 +311,7 @@ void BillPreviewView::setupUi() {
     connect(m_proceedPaymentBtn, &QPushButton::clicked, this, &BillPreviewView::onProceedToPaymentClicked);
 
     bottomActions->addWidget(m_saveOrderBtn);
+    bottomActions->addWidget(m_printPdfBtn);
     bottomActions->addStretch();
     bottomActions->addWidget(m_proceedPaymentBtn);
     mainLayout->addLayout(bottomActions);
@@ -287,6 +327,7 @@ void BillPreviewView::populateBillData() {
     m_emptyStateFrame->setVisible(!hasItems);
     m_invoiceFrame->setVisible(hasItems);
     m_saveOrderBtn->setEnabled(hasItems);
+    m_printPdfBtn->setEnabled(hasItems);
     m_proceedPaymentBtn->setEnabled(hasItems);
 
     if (!hasItems) return;
@@ -358,6 +399,8 @@ void BillPreviewView::populateBillData() {
 
     m_subtotalLabel->setText(QString("Rs. %1").arg(m_currentBill.totalWithoutTax, 0, 'f', 2));
     m_discountLabel->setText(QString("-Rs. %1").arg(m_currentBill.totalDiscount, 0, 'f', 2));
+    m_seasonalDiscountLabel->setText(QString("-Rs. %1").arg(m_currentBill.seasonalDiscount, 0, 'f', 2));
+    m_specialDiscountLabel->setText(QString("-Rs. %1").arg(m_currentBill.specialDiscount, 0, 'f', 2));
     m_taxLabel->setText(QString("+Rs. %1").arg(m_currentBill.totalTax, 0, 'f', 2));
     m_totalPayableLabel->setText(QString("Rs. %1").arg(m_currentBill.totalPayable, 0, 'f', 2));
 }
@@ -374,4 +417,114 @@ void BillPreviewView::onPrintOrSaveClicked() {
                                  .arg(QString::fromStdString(m_currentBill.orderId))
                                  .arg(QString::fromStdString(m_currentBill.billId)));
     }
+}
+
+void BillPreviewView::onPrintPdfClicked() {
+    if (m_currentBill.items.empty()) return;
+
+    std::ostringstream ss;
+    ss << "========================================================\n";
+    ss << "               RETAIL POS SUPERMARKET\n";
+    ss << "           Official Retail Sales Receipt\n";
+    ss << "========================================================\n";
+    ss << "Bill ID:      " << m_currentBill.billId << "\n";
+    ss << "Order ID:     " << m_currentBill.orderId << "\n";
+    ss << "Date & Time:  " << m_currentBill.timestamp << "\n";
+    ss << "Customer:     " << m_currentBill.customerName << "\n";
+    if (!m_currentBill.customerContact.empty() && m_currentBill.customerContact != "N/A") {
+        ss << "Contact:      " << m_currentBill.customerContact << "\n";
+    }
+    ss << "Register:     Cash Register Drawer #01\n";
+    ss << "Status:       " << m_currentBill.paymentStatus << "\n";
+    ss << "Payment Mode: " << m_currentBill.paymentMode << "\n";
+    ss << "--------------------------------------------------------\n";
+    ss << std::left << std::setw(10) << "Code"
+       << std::setw(20) << "Item"
+       << std::right << std::setw(8) << "Price"
+       << std::setw(6) << "Qty"
+       << std::setw(10) << "Subtotal" << "\n";
+    ss << "--------------------------------------------------------\n";
+    for (const auto& it : m_currentBill.items) {
+        std::string name = it.product.name.substr(0, 18);
+        ss << std::left << std::setw(10) << it.product.acronym
+           << std::setw(20) << name
+           << std::right << std::fixed << std::setprecision(2)
+           << std::setw(8) << it.product.unitPrice
+           << std::setw(6) << it.quantity
+           << std::setw(10) << it.getSubtotal() << "\n";
+        if (it.getTotalDiscount() > 0.001) {
+            ss << "   (Item Discount: -Rs. " << it.getTotalDiscount() << ")\n";
+        }
+    }
+    ss << "--------------------------------------------------------\n";
+    ss << std::left << std::setw(34) << "Subtotal (excl. Tax):"
+       << std::right << std::setw(20) << ("Rs. " + QString::number(m_currentBill.totalWithoutTax, 'f', 2).toStdString()) << "\n";
+    ss << std::left << std::setw(34) << "Product Discounts:"
+       << std::right << std::setw(20) << ("-Rs. " + QString::number(m_currentBill.totalDiscount, 'f', 2).toStdString()) << "\n";
+    if (m_currentBill.seasonalDiscount > 0.001) {
+        ss << std::left << std::setw(34) << "Seasonal Discount:"
+           << std::right << std::setw(20) << ("-Rs. " + QString::number(m_currentBill.seasonalDiscount, 'f', 2).toStdString()) << "\n";
+    }
+    if (m_currentBill.specialDiscount > 0.001) {
+        ss << std::left << std::setw(34) << "Special Discount:"
+           << std::right << std::setw(20) << ("-Rs. " + QString::number(m_currentBill.specialDiscount, 'f', 2).toStdString()) << "\n";
+    }
+    ss << std::left << std::setw(34) << "Estimated Tax:"
+       << std::right << std::setw(20) << ("+Rs. " + QString::number(m_currentBill.totalTax, 'f', 2).toStdString()) << "\n";
+    ss << "========================================================\n";
+    ss << std::left << std::setw(34) << "TOTAL PAYABLE AMOUNT:"
+       << std::right << std::setw(20) << ("Rs. " + QString::number(m_currentBill.totalPayable, 'f', 2).toStdString()) << "\n";
+    if (m_currentBill.amountTendered > 0.001) {
+        ss << std::left << std::setw(34) << "Amount Tendered:"
+           << std::right << std::setw(20) << ("Rs. " + QString::number(m_currentBill.amountTendered, 'f', 2).toStdString()) << "\n";
+        ss << std::left << std::setw(34) << "Returned Balance:"
+           << std::right << std::setw(20) << ("Rs. " + QString::number(m_currentBill.changeDue, 'f', 2).toStdString()) << "\n";
+    }
+    ss << "========================================================\n";
+    ss << "             Thank you for shopping with us!\n";
+    ss << "========================================================\n";
+
+    QString receiptStr = QString::fromStdString(ss.str());
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("Print / Export Receipt — Bill Preview");
+    dlg.resize(520, 600);
+    auto* layout = new QVBoxLayout(&dlg);
+
+    auto* previewEdit = new QTextEdit(&dlg);
+    previewEdit->setReadOnly(true);
+    previewEdit->setFont(QFont("Courier New", 10));
+    previewEdit->setText(receiptStr);
+    previewEdit->setStyleSheet("background-color: #FFFFFF; color: #111827; border: 1px solid #D1D5DB; padding: 10px;");
+    layout->addWidget(previewEdit);
+
+    auto* btnBox = new QHBoxLayout();
+    auto* saveFileBtn = new QPushButton("Save as PDF / Receipt File...", &dlg);
+    saveFileBtn->setStyleSheet("background-color: #166534; color: white; font-weight: bold; padding: 8px 18px; border-radius: 4px; border: none;");
+    auto* closeBtn = new QPushButton("Close", &dlg);
+    closeBtn->setStyleSheet("background-color: #6B7280; color: white; padding: 8px 16px; border-radius: 4px; border: none;");
+
+    connect(saveFileBtn, &QPushButton::clicked, [&dlg, &receiptStr, this]() {
+        QString defaultName = QString("Receipt_%1.txt").arg(QString::fromStdString(m_currentBill.billId));
+        QString path = QFileDialog::getSaveFileName(&dlg, "Save Bill / Receipt", defaultName, "Text Receipt (*.txt);;PDF File (*.pdf);;All Files (*)");
+        if (!path.isEmpty()) {
+            QFile file(path);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << receiptStr;
+                file.close();
+                QMessageBox::information(&dlg, "Receipt Saved", QString("Receipt successfully saved to:\n%1").arg(path));
+            } else {
+                QMessageBox::warning(&dlg, "Save Failed", "Could not write to the selected destination.");
+            }
+        }
+    });
+    connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+
+    btnBox->addWidget(saveFileBtn);
+    btnBox->addStretch();
+    btnBox->addWidget(closeBtn);
+    layout->addLayout(btnBox);
+
+    dlg.exec();
 }
