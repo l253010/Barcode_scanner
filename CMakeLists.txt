@@ -19,23 +19,50 @@ set(CMAKE_AUTORCC ON)
 # Find Qt 6 Widgets using standard CMake package discovery
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
 
-# Find OpenCV for camera barcode scanning (optional – app works without it)
-find_package(OpenCV QUIET)
-if(NOT OpenCV_FOUND)
-    # Try the specific Windows path used by this team
-    if(EXISTS "C:/Users/AR COMPUTER/Downloads/opencv/build")
-        set(OpenCV_DIR "C:/Users/AR COMPUTER/Downloads/opencv/build")
-        find_package(OpenCV QUIET)
+# Standard cross-platform discovery for OpenCV (optional – app works with clear fallback if absent)
+if(APPLE)
+    list(APPEND CMAKE_PREFIX_PATH
+        "/opt/homebrew"
+        "/opt/homebrew/opt/opencv"
+        "/opt/homebrew/opt/opencv/lib/cmake/opencv5"
+        "/opt/homebrew/opt/opencv/lib/cmake/opencv4"
+        "/opt/homebrew/lib/cmake/opencv5"
+        "/opt/homebrew/lib/cmake/opencv4"
+        "/usr/local"
+        "/usr/local/opt/opencv"
+    )
+elseif(WIN32)
+    if(DEFINED ENV{OpenCV_DIR})
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{OpenCV_DIR}")
     endif()
+    if(DEFINED ENV{OPENCV_DIR})
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{OPENCV_DIR}")
+    endif()
+    # Common portable Windows installation paths
+    list(APPEND CMAKE_PREFIX_PATH
+        "C:/opencv/build"
+        "C:/opencv"
+        "C:/tools/opencv/build"
+        "C:/tools/opencv"
+        "C:/vcpkg/installed/x64-windows"
+    )
+endif()
+
+# Try finding required camera scanning components first
+find_package(OpenCV QUIET COMPONENTS core videoio highgui imgproc)
+if(NOT OpenCV_FOUND)
+    # General fallback search across standard system paths
+    find_package(OpenCV QUIET)
 endif()
 
 if(OpenCV_FOUND)
-    message(STATUS "OpenCV found: ${OpenCV_VERSION} — live camera scanner ENABLED")
+    message(STATUS "OpenCV found: ${OpenCV_VERSION} (${OpenCV_DIR}) — live camera scanner ENABLED")
     add_compile_definitions(OPENCV_AVAILABLE)
 else()
-    message(STATUS "OpenCV NOT found — live camera scanner will be DISABLED at runtime")
-    # Provide empty stub headers/libs so camera_scanner.cpp can still compile
-    # by guarding its OpenCV includes at the source level
+    message(STATUS "OpenCV NOT found — live camera scanner will be safely disabled with runtime notice.")
+    message(STATUS "  To enable live camera scanning:")
+    message(STATUS "  - On macOS: brew install opencv")
+    message(STATUS "  - On Windows: Extract OpenCV and set OpenCV_DIR environment variable (e.g. C:\\opencv\\build)")
     add_compile_definitions(OPENCV_NOT_AVAILABLE)
 endif()
 
@@ -109,14 +136,18 @@ target_include_directories(pos_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/barcode
     ${CMAKE_CURRENT_SOURCE_DIR}/product_module
     ${CMAKE_CURRENT_SOURCE_DIR}/order_management
-    ${OpenCV_INCLUDE_DIRS}
 )
 
-# Link against Qt6 Widgets and OpenCV
+# Link against Qt6 Widgets
 target_link_libraries(pos_app PRIVATE
     Qt6::Widgets
-    ${OpenCV_LIBS}
 )
+
+# Link OpenCV if available
+if(OpenCV_FOUND)
+    target_include_directories(pos_app PRIVATE ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(pos_app PRIVATE ${OpenCV_LIBS})
+endif()
 
 # On Windows Release builds, suppress console window
 if(WIN32)

@@ -1,5 +1,6 @@
 #include "CashierOrderView.h"
 #include "BarcodeGenerator.h"
+#include "BarcodeDecoder.h"
 #include "OrderModule.h"
 
 #include <QVBoxLayout>
@@ -7,6 +8,7 @@
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QFileDialog>
 #include <QSpinBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -362,8 +364,18 @@ QWidget* CashierOrderView::buildActiveOrderTab() {
     m_cameraToggleBtn->setCursor(Qt::PointingHandCursor);
     connect(m_cameraToggleBtn, &QPushButton::clicked, this, &CashierOrderView::onToggleCameraPlaceholder);
 
+    auto* uploadImgBtn = new QPushButton("Upload Barcode Image...", m_cameraFrame);
+    uploadImgBtn->setStyleSheet(
+        "QPushButton { background-color: #FFFFFF; border: 1px solid #1E3A5F; border-radius: 3px;"
+        "  padding: 4px 10px; font-size: 11px; font-weight: 600; color: #1E3A5F; }"
+        "QPushButton:hover { background-color: #EFF6FF; }"
+    );
+    uploadImgBtn->setCursor(Qt::PointingHandCursor);
+    connect(uploadImgBtn, &QPushButton::clicked, this, &CashierOrderView::onUploadBarcodeImageClicked);
+
     cameraLayout->addWidget(m_cameraStatusLabel);
     cameraLayout->addStretch();
+    cameraLayout->addWidget(uploadImgBtn);
     cameraLayout->addWidget(m_cameraToggleBtn);
     scanLayout->addWidget(m_cameraFrame);
     leftCol->addWidget(scanCard);
@@ -1010,12 +1022,58 @@ void CashierOrderView::onToggleCameraPlaceholder() {
                 m_cameraStatusLabel->setText("<font color='#DC2626'><b>[Not Found]</b></font>");
             }
         } else if (!res.errorMessage.empty()) {
+            if (res.errorMessage.find("OpenCV was not found") != std::string::npos ||
+                res.errorMessage.find("not available") != std::string::npos) {
+                QMessageBox::information(
+                    this,
+                    "Live Camera Scanner Dependency",
+                    QString("<b>Camera Scanner Dependency Notice</b><br><br>"
+                            "Live webcam scanning requires the OpenCV library (version 4.x), "
+                            "which was not present on this machine during build.<br><br>"
+                            "<b>To enable live camera scanning:</b><br>"
+                            "• <b>macOS:</b> Install via Homebrew:<br>"
+                            "&nbsp;&nbsp;<code>brew install opencv</code><br><br>"
+                            "• <b>Windows:</b> Extract OpenCV and set the <code>OpenCV_DIR</code> environment variable:<br>"
+                            "&nbsp;&nbsp;<code>set OpenCV_DIR=C:\\opencv\\build</code><br><br>"
+                            "Then rebuild the project with CMake.<br><br>"
+                            "<b>Alternative Scanning Methods:</b><br>"
+                            "You can click <b>'Upload Barcode Image...'</b> to decode barcode images (PNG/BMP/JPG) "
+                            "or enter/paste barcodes manually.")
+                );
+            }
             m_scanStatusLabel->setText(QString("<font color='#DC2626'>%1</font>")
                 .arg(QString::fromStdString(res.errorMessage)));
             m_cameraStatusLabel->setText("<b>[Camera Scanner Ready]</b>");
         } else {
             m_cameraStatusLabel->setText("<b>[Camera Scanner Ready]</b>");
         }
+    }
+}
+
+void CashierOrderView::onUploadBarcodeImageClicked() {
+    QString fileName = QFileDialog::getOpenFileName(
+        this,
+        "Select Barcode Image to Scan",
+        QString(),
+        "Barcode Images (*.png *.bmp *.jpg *.jpeg);;All Files (*.*)"
+    );
+    if (fileName.isEmpty()) return;
+
+    DecodeResult dec = BarcodeDecoder::decodeImage(fileName.toStdString());
+    if (dec.success) {
+        m_barcodeInput->setText(QString::fromStdString(dec.code));
+        onAddBarcodeClicked();
+        m_scanStatusLabel->setText(QString("<font color='#166534'><b>[Image Decoded]</b> Successfully scanned barcode '%1' from image file.</font>")
+            .arg(QString::fromStdString(dec.code)));
+    } else {
+        QMessageBox::warning(
+            this,
+            "Barcode Image Decoding Failed",
+            QString("Could not decode a valid Code 39 barcode from image file:\n\n%1\n\nEnsure image is clear and contains a valid Code 39 barcode.")
+                .arg(QString::fromStdString(dec.errorMessage))
+        );
+        m_scanStatusLabel->setText(QString("<font color='#DC2626'>Image scan failed: %1</font>")
+            .arg(QString::fromStdString(dec.errorMessage)));
     }
 }
 
@@ -1178,6 +1236,9 @@ void CashierOrderView::onDeleteHeldOrderClicked() {
 std::vector<CashierOrderView::StoredOrder> CashierOrderView::loadStoredOrders() {
     std::vector<StoredOrder> list;
     std::ifstream file("Order.txt");
+    if (!file.is_open()) {
+        file.open("../Order.txt");
+    }
     if (!file.is_open()) {
         return list;
     }

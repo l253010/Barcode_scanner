@@ -53,6 +53,7 @@ private slots:
     void onGenerateBillClicked();
     void onClearCartClicked();
     void onToggleCameraPlaceholder();
+    void onUploadBarcodeImageClicked();
     void onHoldOrderClicked();
 
     // Held Orders tab

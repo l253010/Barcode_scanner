@@ -49,6 +49,7 @@ signals:
 private slots:
     void onLookupClicked();
     void onScanCameraClicked();
+    void onUploadBarcodeImageClicked();
     void onProductDropdownChanged(int index);
     void onAddToCartClicked();
 

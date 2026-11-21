@@ -1231,6 +1231,7 @@ struct MgrOrder {
 static std::vector<MgrOrder> loadOrdersFromDisk() {
     std::vector<MgrOrder> list;
     std::ifstream file("Order.txt");
+    if (!file.is_open()) file.open("../Order.txt");
     if (!file.is_open()) return list;
     std::string line;
     while (std::getline(file, line)) {
@@ -1274,6 +1275,7 @@ struct MgrBill {
 static std::vector<MgrBill> loadBillsFromDisk() {
     std::vector<MgrBill> list;
     std::ifstream file("Bill.txt");
+    if (!file.is_open()) file.open("../Bill.txt");
     if (!file.is_open()) return list;
     std::string line;
     while (std::getline(file, line)) {
@@ -1317,6 +1319,7 @@ struct MgrDetail {
 static std::vector<MgrDetail> loadDetailsFromDisk() {
     std::vector<MgrDetail> list;
     std::ifstream file("OrderDetail.txt");
+    if (!file.is_open()) file.open("../OrderDetail.txt");
     if (!file.is_open()) return list;
     std::string line;
     while (std::getline(file, line)) {

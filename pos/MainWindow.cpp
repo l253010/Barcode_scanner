@@ -226,7 +226,7 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_billView);
 
     // Screen 4: Payment
-    m_paymentView = new PaymentView(m_mockService.get(), this);
+    m_paymentView = new PaymentView(m_mockService.get(), m_productBillingService.get(), this);
     connect(m_paymentView, &PaymentView::paymentCompleted, this, &MainWindow::onPaymentCompleted);
     connect(m_paymentView, &PaymentView::backToBillRequested, [this](const BillInfo& b) {
         m_activeBill = b;
@@ -296,17 +296,9 @@ void MainWindow::onProceedToPaymentRequested(const BillInfo& bill) {
 
 void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
     m_activeBill = updatedBill;
-    std::string commitError;
-    if (!m_productBillingService->commitOrderStock(updatedBill, &commitError)) {
-        QMessageBox::warning(
-            this,
-            "Inventory Persistence Notice",
-            QString("Order completed, but inventory stock deduction could not be saved to disk:\n%1")
-                .arg(QString::fromStdString(commitError))
-        );
-    }
+
+    // Refresh manager catalog with updated stock levels
     m_managerView->refreshCatalog();
-    m_mockService->saveBill(updatedBill);
 
     // Persist finalized transaction into Jav's OrderModule (Order.txt, OrderDetail.txt, Bill.txt)
     std::string method = updatedBill.paymentMode;
@@ -324,7 +316,7 @@ void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
 
     m_billView->loadBill(updatedBill);
     m_cashierView->resetOrder(); // Clear cart for next customer
-    navigateToScreen(3); // Return to Bill Preview showing PAID status
+    navigateToScreen(3); // Navigate to Bill Preview showing the finalized PAID receipt
 }
 
 void MainWindow::onAddProductToCartRequested(const ProductInfo& product) {
