@@ -1,11 +1,12 @@
 #include "PaymentView.h"
+#include "ProductBillingService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QMessageBox>
 
-PaymentView::PaymentView(IOrderStorageService* storageService, QWidget* parent)
-    : QWidget(parent), m_storageService(storageService) {
+PaymentView::PaymentView(IOrderStorageService* storageService, ProductBillingService* billingService, QWidget* parent)
+    : QWidget(parent), m_storageService(storageService), m_billingService(billingService) {
     setupUi();
     updateUiState();
 }
@@ -476,6 +477,23 @@ void PaymentView::onConfirmPaymentClicked() {
         m_currentBill.changeDue = 0.0;
     }
 
+    // 3. Atomically commit inventory stock and persist to Product.txt BEFORE finalizing payment
+    if (m_billingService) {
+        std::string commitError;
+        if (!m_billingService->commitOrderStock(m_currentBill, &commitError)) {
+            // Transaction failure: do not mark paid, do not deduct payment, do not update UI to paid
+            QMessageBox::critical(
+                this,
+                "Transaction Blocked - Inventory Error",
+                QString("Payment could not be completed because inventory stock could not be committed:\n\n%1\n\n"
+                        "No payment has been processed and stock remains unchanged.")
+                    .arg(QString::fromStdString(commitError))
+            );
+            return;
+        }
+    }
+
+    // 4. Mark bill as Paid ONLY AFTER stock deduction and persistence succeed
     m_currentBill.paymentStatus = "Paid";
 
     if (m_storageService) {

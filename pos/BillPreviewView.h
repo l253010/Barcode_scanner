@@ -41,11 +41,14 @@ private:
     // Summary labels
     QLabel*       m_subtotalLabel{nullptr};
     QLabel*       m_discountLabel{nullptr};
+    QLabel*       m_seasonalDiscountLabel{nullptr};
+    QLabel*       m_specialDiscountLabel{nullptr};
     QLabel*       m_taxLabel{nullptr};
     QLabel*       m_totalPayableLabel{nullptr};
 
     QPushButton*  m_proceedPaymentBtn{nullptr};
     QPushButton*  m_saveOrderBtn{nullptr};
+    QPushButton*  m_printPdfBtn{nullptr};
 
     // Empty state container
     QFrame*       m_emptyStateFrame{nullptr};
@@ -53,4 +56,5 @@ private:
 
     void setupUi();
     void populateBillData();
+    void onPrintPdfClicked();
 };

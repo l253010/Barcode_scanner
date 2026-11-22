@@ -69,6 +69,9 @@ struct BillInfo {
     double                 totalDiscount{0.0};   // Total discount applied
     double                 totalPayable{0.0};    // Final payable amount
 
+    double                 seasonalDiscount{0.0}; // Seasonal discount amount
+    double                 specialDiscount{0.0};  // Special store discount amount
+
     std::string            paymentStatus{"Pending"}; // "Pending", "Paid", "Cancelled"
     std::string            paymentMode{"Cash"};      // "Cash", "Card", "Wallet"
     std::string            paymentMerchant{"N/A"};   // Merchant or terminal name
