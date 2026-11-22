@@ -1,9 +1,11 @@
 #include "ProductDescriptionView.h"
+#include "BarcodeDecoder.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QPainter>
 #include <QMessageBox>
+#include <QFileDialog>
 
 // ============================================================================
 // BarcodeDisplayWidget Implementation
@@ -193,6 +195,20 @@ void ProductDescriptionView::setupUi() {
     );
     connect(scanCameraBtn, &QPushButton::clicked, this, &ProductDescriptionView::onScanCameraClicked);
 
+    auto* uploadImgBtn = new QPushButton("Upload Image...", lookupCard);
+    uploadImgBtn->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #FFFFFF;"
+        "  border: 1px solid #1E3A5F;"
+        "  color: #1E3A5F;"
+        "  font-weight: 600;"
+        "  padding: 7px 14px;"
+        "  border-radius: 4px;"
+        "}"
+        "QPushButton:hover { background-color: #EFF6FF; }"
+    );
+    connect(uploadImgBtn, &QPushButton::clicked, this, &ProductDescriptionView::onUploadBarcodeImageClicked);
+
     auto* selectLabel = new QLabel("Or Select Product:", lookupCard);
     selectLabel->setStyleSheet("color: #4B5563; font-weight: 600; font-size: 13px;");
 
@@ -212,6 +228,7 @@ void ProductDescriptionView::setupUi() {
     lookupRow->addWidget(m_lookupInput, 2);
     lookupRow->addWidget(lookupBtn);
     lookupRow->addWidget(scanCameraBtn);
+    lookupRow->addWidget(uploadImgBtn);
     lookupRow->addWidget(selectLabel);
     lookupRow->addWidget(m_productCombo, 3);
     lookupLayout->addLayout(lookupRow);
@@ -334,9 +351,54 @@ void ProductDescriptionView::onScanCameraClicked() {
         m_lookupStatusLabel->setText(QString("<font color='#166534'>Camera successfully scanned barcode: <b>%1</b></font>")
                                      .arg(QString::fromStdString(res.barcode)));
     } else if (!res.errorMessage.empty()) {
+        if (res.errorMessage.find("OpenCV was not found") != std::string::npos ||
+            res.errorMessage.find("not available") != std::string::npos) {
+            QMessageBox::information(
+                this,
+                "Camera Barcode Scanner",
+                QString("<b>Live Camera Scanner Dependency Notice</b><br><br>"
+                        "Live webcam scanning requires the OpenCV library (version 4.x), "
+                        "which was not present on this machine during build.<br><br>"
+                        "<b>To enable live camera scanning:</b><br>"
+                        "• <b>macOS:</b> Install via Homebrew:<br>"
+                        "&nbsp;&nbsp;<code>brew install opencv</code><br><br>"
+                        "• <b>Windows:</b> Extract OpenCV and set the <code>OpenCV_DIR</code> environment variable:<br>"
+                        "&nbsp;&nbsp;<code>set OpenCV_DIR=C:\\opencv\\build</code><br><br>"
+                        "Then rebuild the project with CMake.<br><br>"
+                        "<b>Alternative Scanning Methods:</b><br>"
+                        "You can use the <b>'Upload Image...'</b> button to scan barcode files (PNG/BMP/JPG) "
+                        "or select from the dropdown.")
+            );
+        }
         m_lookupStatusLabel->setText(QString("<font color='#DC2626'>%1</font>").arg(QString::fromStdString(res.errorMessage)));
     } else {
         m_lookupStatusLabel->setText("Scan cancelled.");
+    }
+}
+
+void ProductDescriptionView::onUploadBarcodeImageClicked() {
+    QString fileName = QFileDialog::getOpenFileName(
+        this,
+        "Select Barcode Image to Scan",
+        QString(),
+        "Barcode Images (*.png *.bmp *.jpg *.jpeg);;All Files (*.*)"
+    );
+    if (fileName.isEmpty()) return;
+
+    DecodeResult dec = BarcodeDecoder::decodeImage(fileName.toStdString());
+    if (dec.success) {
+        m_lookupInput->setText(QString::fromStdString(dec.code));
+        displayProduct(dec.code);
+        m_lookupStatusLabel->setText(QString("<font color='#166534'><b>[Image Decoded]</b> Successfully scanned barcode: <b>%1</b> from image file.</font>")
+                                     .arg(QString::fromStdString(dec.code)));
+    } else {
+        QMessageBox::warning(
+            this,
+            "Barcode Decoding Failed",
+            QString("Could not decode Code 39 barcode from image:\n\n%1\n\nEnsure image is clear and contains a valid Code 39 barcode.")
+                .arg(QString::fromStdString(dec.errorMessage))
+        );
+        m_lookupStatusLabel->setText(QString("<font color='#DC2626'>Failed to decode image: %1</font>").arg(QString::fromStdString(dec.errorMessage)));
     }
 }
 

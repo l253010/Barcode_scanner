@@ -9,6 +9,12 @@
 #include <chrono>
 #include <iostream>
 
+// Only compile the full OpenCV implementation when OpenCV is available.
+// When OpenCV is not installed, a lightweight stub is provided so the
+// application still builds and runs. The GUI will show a "camera not
+// available" message in that case.
+#ifdef OPENCV_AVAILABLE
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable: 4127 4244 5054 4819 4996)
@@ -295,3 +301,12 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
         }
     }
 }
+
+#else // OPENCV_AVAILABLE not defined — provide a no-op stub
+
+ScanOutcome scanBarcodeFromCamera(const ScanOptions& /*options*/) {
+    return { false, "", "Camera scanner not available: OpenCV was not found during build. "
+             "Install OpenCV and rebuild to enable live camera scanning." };
+}
+
+#endif // OPENCV_AVAILABLE
