@@ -14,6 +14,8 @@
 
 namespace ProductBilling {
 
+class CategoryManager;
+
 /**
  * @brief Structured result for GUI-friendly product lookups.
  */
@@ -40,8 +42,9 @@ struct StockValidationResult {
  */
 class ProductManager {
 private:
-    DynamicArray<Product> m_products;           // Dynamically managed contiguous catalog storage
-    std::string           m_lastLoadedFilePath;
+    DynamicArray<Product>  m_products;           // Dynamically managed contiguous catalog storage
+    std::string            m_lastLoadedFilePath;
+    const CategoryManager* m_categoryManager{nullptr};
 
     // Internal helper to find index by barcode; returns -1 if not found
     int findIndexByBarcode(const std::string& barcode) const;
@@ -76,6 +79,16 @@ public:
     bool addOrUpdateProduct(const Product& product);
 
     /**
+     * @brief Adds a new product to the catalog. Rejects if barcode already exists or product is invalid.
+     */
+    bool addProduct(const Product& product, std::string* errorMsg = nullptr);
+
+    /**
+     * @brief Updates an existing product in the catalog. Rejects if product is not found or invalid.
+     */
+    bool updateProduct(const Product& product, std::string* errorMsg = nullptr);
+
+    /**
      * @brief Removes a product by barcode.
      */
     bool removeProduct(const std::string& barcode);
@@ -84,6 +97,12 @@ public:
      * @brief Clears all cached products in memory.
      */
     void clear();
+
+    /**
+     * @brief Associates a CategoryManager to enforce business validation on product barcodes.
+     */
+    void setCategoryManager(const CategoryManager* catMgr);
+    const CategoryManager* getCategoryManager() const;
 
     // ---- Searching & Retrieval ----
     /**

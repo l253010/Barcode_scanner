@@ -17,12 +17,13 @@ struct ProductInfo {
     std::string barcode;               // Validated 6-digit barcode (Code 39)
     std::string acronym;               // Short product code (e.g., "MILK-1L")
     std::string name;                  // Full product name (e.g., "Fresh Whole Milk 1L")
-    std::string category;              // Product category (e.g., "Dairy & Milk")
+    std::string category;              // Product category display name (e.g., "Dairy & Bakery")
     std::string unit;                  // Unit of measurement (e.g., "Bottle", "Kg", "Loaf")
     double      unitPrice{0.0};        // Price per unit in PKR (Rs.)
     double      taxRate{0.0};          // Tax rate (e.g., 0.05 for 5%)
     double      discountPerUnit{0.0};  // Discount per unit in PKR (Rs.)
     int         availableQuantity{0};  // Inventory stock count
+    std::string categoryId;            // 2-digit Category ID (e.g., "10", "60")
 };
 
 // ----------------------------------------------------------------------------
@@ -80,6 +81,17 @@ struct BillInfo {
 };
 
 // ----------------------------------------------------------------------------
+// Category Information Structure
+// Represents a product category in the retail POS system.
+// Stored in PCategory.txt: 2-digit ID, Name, Acronym, ending with '#'
+// ----------------------------------------------------------------------------
+struct CategoryInfo {
+    std::string id;       // 2-digit unique ID (e.g. "10", "12")
+    std::string name;     // Category Name (e.g. "Dairy & Bakery")
+    std::string acronym;  // Category Acronym (e.g. "DAIRY")
+};
+
+// ----------------------------------------------------------------------------
 // Barcode Scanner Result Structure
 // Outcome of a barcode scan operation.
 // ----------------------------------------------------------------------------
@@ -100,6 +112,16 @@ public:
     virtual bool findProductById(int id, ProductInfo& outProduct) = 0;
     virtual std::vector<ProductInfo> getAllProducts() = 0;
     virtual bool updateProductStock(const std::string& barcode, int newStock, std::string* errorMsg = nullptr) = 0;
+
+    // Category Management
+    virtual std::vector<CategoryInfo> getAllCategories() { return {}; }
+    virtual bool addCategory(const CategoryInfo& category, std::string* errorMsg = nullptr) { (void)category; (void)errorMsg; return false; }
+    virtual bool updateCategory(const CategoryInfo& category, std::string* errorMsg = nullptr) { (void)category; (void)errorMsg; return false; }
+    virtual bool findCategoryById(const std::string& id, CategoryInfo& outCategory) { (void)id; (void)outCategory; return false; }
+
+    // Product Management (Full addition and update)
+    virtual bool addProduct(const ProductInfo& product, std::string* errorMsg = nullptr) { (void)product; (void)errorMsg; return false; }
+    virtual bool updateProduct(const ProductInfo& product, std::string* errorMsg = nullptr) { (void)product; (void)errorMsg; return false; }
 };
 
 class IBillingService {

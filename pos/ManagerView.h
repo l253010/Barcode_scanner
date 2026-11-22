@@ -69,8 +69,9 @@ private:
 
     // ---- Category Tab ----
     QTableWidget* m_categoryTable{nullptr};
+    QLineEdit*    m_catIdInput{nullptr};
     QLineEdit*    m_catNameInput{nullptr};
-    QLineEdit*    m_catDescInput{nullptr};
+    QLineEdit*    m_catAcrInput{nullptr};
     QPushButton*  m_addCatBtn{nullptr};
     QPushButton*  m_editCatBtn{nullptr};
     QLabel*       m_catStatusLabel{nullptr};
@@ -105,12 +106,6 @@ private:
     QTableWidget* m_reportTable{nullptr};
     QLabel*       m_reportSummaryLabel{nullptr};
 
-    // Internal data structures for categories and seasons (simple in-memory, since
-    // Eman's backend category module is not yet integrated)
-    struct CategoryRecord {
-        QString name;
-        QString description;
-    };
     struct SeasonRecord {
         QString name;
         QString startDate;
@@ -118,7 +113,7 @@ private:
         double  discountPercent{0.0};
         bool    active{false};
     };
-    std::vector<CategoryRecord> m_categories;
+    std::vector<CategoryInfo>   m_categories;
     std::vector<SeasonRecord>   m_seasons;
 
     // Helper methods

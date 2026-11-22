@@ -5,6 +5,7 @@
 // ----------------------------------------------------------------------------
 
 #include "ProductManager.h"
+#include "Category.h"
 #include <fstream>
 
 namespace ProductBilling {
@@ -155,6 +156,143 @@ bool ProductManager::addOrUpdateProduct(const Product& product) {
     } else {
         m_products.push_back(product);
     }
+    return true;
+}
+
+void ProductManager::setCategoryManager(const CategoryManager* catMgr) {
+    m_categoryManager = catMgr;
+}
+
+const CategoryManager* ProductManager::getCategoryManager() const {
+    return m_categoryManager;
+}
+
+bool ProductManager::addProduct(const Product& product, std::string* errorMsg) {
+    if (!product.isValid()) {
+        if (errorMsg) *errorMsg = "Product details are invalid or missing required fields.";
+        return false;
+    }
+
+    if (m_categoryManager) {
+        if (product.getBarcode().length() < 2) {
+            if (errorMsg) *errorMsg = "Invalid barcode: Barcode must contain at least 2 characters.";
+            return false;
+        }
+        if (product.getBarcode()[0] < '0' || product.getBarcode()[0] > '9' ||
+            product.getBarcode()[1] < '0' || product.getBarcode()[1] > '9') {
+            if (errorMsg) *errorMsg = "Invalid barcode: The first two characters must be numeric digits.";
+            return false;
+        }
+        std::string barcodeCatId = product.getBarcode().substr(0, 2);
+        std::string selectedCatId = "";
+        std::string prodCat = product.getCategory();
+        if (prodCat.length() == 2 && prodCat[0] >= '0' && prodCat[0] <= '9' && prodCat[1] >= '0' && prodCat[1] <= '9') {
+            selectedCatId = prodCat;
+        } else if (!prodCat.empty()) {
+            auto allCats = m_categoryManager->getAllCategories();
+            for (size_t i = 0; i < allCats.size(); ++i) {
+                if (allCats[i].name == prodCat || allCats[i].acronym == prodCat) {
+                    selectedCatId = allCats[i].id;
+                    break;
+                }
+            }
+        }
+        if (!selectedCatId.empty()) {
+            if (!m_categoryManager->categoryExists(selectedCatId)) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid Category ID: Category ID '" + selectedCatId + "' does not exist in PCategory.txt.";
+                }
+                return false;
+            }
+            if (barcodeCatId != selectedCatId) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid barcode: The first two digits must match the selected Category ID (" + selectedCatId + ").";
+                }
+                return false;
+            }
+        } else {
+            if (!m_categoryManager->categoryExists(barcodeCatId)) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid Category ID: Category ID '" + barcodeCatId + "' does not exist in PCategory.txt.";
+                }
+                return false;
+            }
+        }
+    }
+
+    int idx = findIndexByBarcode(product.getBarcode());
+    if (idx >= 0) {
+        if (errorMsg) {
+            *errorMsg = "Product with barcode '" + product.getBarcode() + "' already exists ('" +
+                        m_products[idx].getName() + "'). Barcodes must be unique.";
+        }
+        return false;
+    }
+    m_products.push_back(product);
+    return true;
+}
+
+bool ProductManager::updateProduct(const Product& product, std::string* errorMsg) {
+    if (!product.isValid()) {
+        if (errorMsg) *errorMsg = "Updated product details are invalid.";
+        return false;
+    }
+
+    if (m_categoryManager) {
+        if (product.getBarcode().length() < 2) {
+            if (errorMsg) *errorMsg = "Invalid barcode: Barcode must contain at least 2 characters.";
+            return false;
+        }
+        if (product.getBarcode()[0] < '0' || product.getBarcode()[0] > '9' ||
+            product.getBarcode()[1] < '0' || product.getBarcode()[1] > '9') {
+            if (errorMsg) *errorMsg = "Invalid barcode: The first two characters must be numeric digits.";
+            return false;
+        }
+        std::string barcodeCatId = product.getBarcode().substr(0, 2);
+        std::string selectedCatId = "";
+        std::string prodCat = product.getCategory();
+        if (prodCat.length() == 2 && prodCat[0] >= '0' && prodCat[0] <= '9' && prodCat[1] >= '0' && prodCat[1] <= '9') {
+            selectedCatId = prodCat;
+        } else if (!prodCat.empty()) {
+            auto allCats = m_categoryManager->getAllCategories();
+            for (size_t i = 0; i < allCats.size(); ++i) {
+                if (allCats[i].name == prodCat || allCats[i].acronym == prodCat) {
+                    selectedCatId = allCats[i].id;
+                    break;
+                }
+            }
+        }
+        if (!selectedCatId.empty()) {
+            if (!m_categoryManager->categoryExists(selectedCatId)) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid Category ID: Category ID '" + selectedCatId + "' does not exist in PCategory.txt.";
+                }
+                return false;
+            }
+            if (barcodeCatId != selectedCatId) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid barcode: The first two digits must match the selected Category ID (" + selectedCatId + ").";
+                }
+                return false;
+            }
+        } else {
+            if (!m_categoryManager->categoryExists(barcodeCatId)) {
+                if (errorMsg) {
+                    *errorMsg = "Invalid Category ID: Category ID '" + barcodeCatId + "' does not exist in PCategory.txt.";
+                }
+                return false;
+            }
+        }
+    }
+
+    int idx = findIndexByBarcode(product.getBarcode());
+    if (idx < 0) {
+        if (errorMsg) {
+            *errorMsg = "Product with barcode '" + product.getBarcode() + "' was not found in catalog.";
+        }
+        return false;
+    }
+    m_products[idx] = product;
     return true;
 }
 

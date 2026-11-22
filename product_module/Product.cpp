@@ -160,11 +160,18 @@ const std::string& Product::getAcronym() const         { return m_acronym; }
 const std::string& Product::getName() const            { return m_name; }
 const std::string& Product::getMeasurementUnit() const { return m_measurementUnit; }
 double             Product::getPrice() const           { return m_price; }
+double             Product::getDiscountedPrice() const {
+    double discounted = m_price - m_discountPerUnit;
+    return (discounted > 0.0) ? discounted : 0.0;
+}
 double             Product::getTaxAmount() const       { return m_taxAmount; }
 double             Product::getDiscountPerUnit() const { return m_discountPerUnit; }
 int                Product::getAvailableStock() const  { return m_availableStock; }
 const std::string& Product::getBarcodeFilePath() const { return m_barcodeFilePath; }
 const std::string& Product::getCategory() const        { return m_category; }
+std::string        Product::getCategoryId() const {
+    return (m_barcode.length() >= 2) ? m_barcode.substr(0, 2) : "";
+}
 const std::string& Product::getDescription() const     { return m_description; }
 
 double Product::getTaxRate() const {
@@ -221,6 +228,8 @@ bool Product::isValid() const {
             !m_productId.empty() &&
             !m_name.empty() &&
             m_price >= 0.0 &&
+            m_discountPerUnit >= 0.0 &&
+            m_discountPerUnit <= m_price &&
             m_availableStock >= 0);
 }
 

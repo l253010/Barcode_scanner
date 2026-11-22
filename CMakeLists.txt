@@ -89,6 +89,8 @@ set(POS_SOURCES
     pos/ProductBillingService.h
     pos/ProductBillingService.cpp
     product_module/DynamicArray.h
+    product_module/Category.h
+    product_module/Category.cpp
     product_module/Product.h
     product_module/Product.cpp
     product_module/ProductManager.h
@@ -163,3 +165,23 @@ add_custom_command(TARGET pos_app POST_BUILD
     "$<TARGET_FILE_DIR:pos_app>/Product.txt"
     COMMENT "Copying Product.txt to output directory"
 )
+
+# Copy PCategory.txt alongside the executable so the application finds it at runtime
+add_custom_command(TARGET pos_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/product_module/PCategory.txt"
+    "$<TARGET_FILE_DIR:pos_app>/PCategory.txt"
+    COMMENT "Copying PCategory.txt to output directory"
+)
+
+# On Windows, copy OpenCV runtime DLL alongside the executable so it runs standalone
+if(OpenCV_FOUND AND WIN32)
+    if(EXISTS "${OpenCV_DIR}/x64/vc16/bin/opencv_world${OpenCV_VERSION_MAJOR}${OpenCV_VERSION_MINOR}${OpenCV_VERSION_PATCH}.dll")
+        add_custom_command(TARGET pos_app POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${OpenCV_DIR}/x64/vc16/bin/opencv_world${OpenCV_VERSION_MAJOR}${OpenCV_VERSION_MINOR}${OpenCV_VERSION_PATCH}.dll"
+            "$<TARGET_FILE_DIR:pos_app>/opencv_world${OpenCV_VERSION_MAJOR}${OpenCV_VERSION_MINOR}${OpenCV_VERSION_PATCH}.dll"
+            COMMENT "Copying OpenCV runtime DLL to output directory"
+        )
+    endif()
+endif()

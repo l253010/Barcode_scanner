@@ -13,10 +13,14 @@
 #endif
 
 ProductBillingService::ProductBillingService() {
+    m_productManager.setCategoryManager(&m_categoryManager);
+    loadCategories();
     loadCatalog();
 }
 
 ProductBillingService::ProductBillingService(const std::string& catalogFilePath) {
+    m_productManager.setCategoryManager(&m_categoryManager);
+    loadCategories();
     loadCatalog(catalogFilePath);
 }
 
@@ -78,6 +82,361 @@ std::string ProductBillingService::resolveProductFilePath(const std::string& exp
     return "product_module/Product.txt";
 }
 
+std::string ProductBillingService::resolveCategoryFilePath(const std::string& explicitPath) {
+    std::vector<std::string> candidates;
+
+    if (!explicitPath.empty()) {
+        candidates.push_back(explicitPath);
+    }
+
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+    if (QCoreApplication::instance()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        candidates.push_back(QDir(appDir).filePath("product_module/PCategory.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../product_module/PCategory.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../../product_module/PCategory.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("PCategory.txt").toStdString());
+        candidates.push_back(QDir(appDir).filePath("../PCategory.txt").toStdString());
+    }
+#endif
+
+    candidates.push_back("product_module/PCategory.txt");
+    candidates.push_back("../product_module/PCategory.txt");
+    candidates.push_back("../../product_module/PCategory.txt");
+    candidates.push_back("PCategory.txt");
+    candidates.push_back("../PCategory.txt");
+
+    for (const auto& cand : candidates) {
+        std::error_code ec;
+        if (std::filesystem::exists(cand, ec) && !std::filesystem::is_directory(cand, ec)) {
+            auto can = std::filesystem::canonical(cand, ec);
+            if (!ec) {
+                return can.string();
+            }
+            auto abs = std::filesystem::absolute(cand, ec);
+            if (!ec) {
+                return abs.string();
+            }
+            return cand;
+        }
+    }
+
+#if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
+    if (QCoreApplication::instance()) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QDir parentDir(appDir);
+        parentDir.cdUp();
+        if (parentDir.exists("product_module")) {
+            return parentDir.filePath("product_module/PCategory.txt").toStdString();
+        }
+    }
+#endif
+
+    return "product_module/PCategory.txt";
+}
+
+bool ProductBillingService::loadCategories(const std::string& filePath) {
+    std::string canonicalPath = resolveCategoryFilePath(filePath);
+    std::string status;
+    bool loaded = m_categoryManager.loadFromFile(canonicalPath, &status);
+
+    if (!loaded || m_categoryManager.getCategoryCount() == 0) {
+        initFallbackCategories();
+        return false;
+    }
+
+    return true;
+}
+
+void ProductBillingService::initFallbackCategories() {
+    m_categoryManager.clear();
+    m_categoryManager.addCategory(ProductBilling::Category("10", "Dairy & Bakery", "DAIRY"));
+    m_categoryManager.addCategory(ProductBilling::Category("12", "Coffee & Beverages", "COF"));
+    m_categoryManager.addCategory(ProductBilling::Category("20", "Beverages & Spreads", "BEV"));
+    m_categoryManager.addCategory(ProductBilling::Category("30", "Confectionery & Oils", "CONF"));
+    m_categoryManager.addCategory(ProductBilling::Category("40", "Grains & Staples", "GRAIN"));
+    m_categoryManager.addCategory(ProductBilling::Category("50", "Soft Drinks & Juices", "DRINK"));
+}
+
+bool ProductBillingService::saveCategories(std::string* errorMsg) {
+    std::string primaryPath = m_categoryManager.getLastLoadedFilePath();
+    if (primaryPath.empty()) {
+        primaryPath = resolveCategoryFilePath();
+    }
+
+    std::string status;
+    if (!m_categoryManager.saveToFile(primaryPath, &status)) {
+        if (errorMsg) *errorMsg = status;
+        return false;
+    }
+
+    std::vector<std::string> secondaryCandidates = {
+        "PCategory.txt",
+        "../PCategory.txt",
+        "product_module/PCategory.txt",
+        "../product_module/PCategory.txt"
+    };
+
+    std::error_code ecPrim;
+    auto primCan = std::filesystem::canonical(primaryPath, ecPrim);
+
+    for (const auto& secPath : secondaryCandidates) {
+        std::error_code ecSec;
+        if (std::filesystem::exists(secPath, ecSec) && !std::filesystem::is_directory(secPath, ecSec)) {
+            auto secCan = std::filesystem::canonical(secPath, ecSec);
+            if (!ecPrim && !ecSec && primCan != secCan) {
+                m_categoryManager.saveToFile(secPath, nullptr);
+            }
+        }
+    }
+
+    if (errorMsg) *errorMsg = status;
+    return true;
+}
+
+std::vector<CategoryInfo> ProductBillingService::getAllCategories() {
+    std::vector<CategoryInfo> result;
+    auto all = m_categoryManager.getAllCategories();
+    result.reserve(all.size());
+    for (size_t i = 0; i < all.size(); ++i) {
+        result.push_back({all[i].id, all[i].name, all[i].acronym});
+    }
+    return result;
+}
+
+bool ProductBillingService::addCategory(const CategoryInfo& category, std::string* errorMsg) {
+    ProductBilling::Category c(category.id, category.name, category.acronym);
+    if (!m_categoryManager.addCategory(c, errorMsg)) {
+        return false;
+    }
+    return saveCategories(errorMsg);
+}
+
+bool ProductBillingService::updateCategory(const CategoryInfo& category, std::string* errorMsg) {
+    ProductBilling::Category c(category.id, category.name, category.acronym);
+    if (!m_categoryManager.updateCategory(c, errorMsg)) {
+        return false;
+    }
+    return saveCategories(errorMsg);
+}
+
+bool ProductBillingService::findCategoryById(const std::string& id, CategoryInfo& outCategory) {
+    const ProductBilling::Category* c = m_categoryManager.findCategoryById(id);
+    if (c) {
+        outCategory.id = c->id;
+        outCategory.name = c->name;
+        outCategory.acronym = c->acronym;
+        return true;
+    }
+    return false;
+}
+
+std::string ProductBillingService::resolveCategoryId(const ProductInfo& product) const {
+    if (!product.categoryId.empty()) {
+        return product.categoryId;
+    }
+
+    if (product.category.length() == 2 &&
+        product.category[0] >= '0' && product.category[0] <= '9' &&
+        product.category[1] >= '0' && product.category[1] <= '9') {
+        return product.category;
+    }
+
+    if (product.category.length() >= 4 && product.category[0] == '[') {
+        size_t closeBracket = product.category.find(']');
+        if (closeBracket != std::string::npos && closeBracket > 1) {
+            std::string inside = product.category.substr(1, closeBracket - 1);
+            if (inside.length() == 2 && inside[0] >= '0' && inside[0] <= '9' && inside[1] >= '0' && inside[1] <= '9') {
+                return inside;
+            }
+        }
+    }
+
+    if (!product.category.empty()) {
+        auto allCats = m_categoryManager.getAllCategories();
+        for (size_t i = 0; i < allCats.size(); ++i) {
+            if (allCats[i].name == product.category || allCats[i].acronym == product.category) {
+                return allCats[i].id;
+            }
+        }
+        return "";
+    }
+
+    if (product.categoryId.empty() && product.category.empty()) {
+        if (product.barcode.length() >= 2 &&
+            product.barcode[0] >= '0' && product.barcode[0] <= '9' &&
+            product.barcode[1] >= '0' && product.barcode[1] <= '9') {
+            return product.barcode.substr(0, 2);
+        }
+    }
+
+    return "";
+}
+
+bool ProductBillingService::validateBarcodeCategory(const ProductInfo& product, std::string* errorMsg) const {
+    // 1. Check that the barcode contains at least two characters
+    if (product.barcode.length() < 2) {
+        if (errorMsg) *errorMsg = "Invalid barcode: Barcode must contain at least 2 characters.";
+        return false;
+    }
+
+    // 2. Check that its first two characters are numeric digits
+    if (product.barcode[0] < '0' || product.barcode[0] > '9' ||
+        product.barcode[1] < '0' || product.barcode[1] > '9') {
+        if (errorMsg) *errorMsg = "Invalid barcode: The first two characters must be numeric digits.";
+        return false;
+    }
+
+    // 3. Resolve the selected Category ID
+    std::string selectedCatId = resolveCategoryId(product);
+    if (selectedCatId.empty()) {
+        if (errorMsg) *errorMsg = "Invalid product: A valid Category ID must be selected or specified.";
+        return false;
+    }
+
+    // 4. Verify that the selected Category ID exists in PCategory.txt
+    if (!m_categoryManager.categoryExists(selectedCatId)) {
+        if (errorMsg) {
+            *errorMsg = "Invalid Category ID: Category ID '" + selectedCatId +
+                        "' does not exist in PCategory.txt.";
+        }
+        return false;
+    }
+
+    // 5. Compare those exact two digits with the selected Category ID
+    std::string barcodePrefix = product.barcode.substr(0, 2);
+    if (barcodePrefix != selectedCatId) {
+        if (errorMsg) {
+            *errorMsg = "Invalid barcode: The first two digits must match the selected Category ID (" +
+                        selectedCatId + ").";
+        }
+        return false;
+    }
+
+    // 6. Full 6-digit Code 39 format validation
+    if (product.barcode.length() != 6) {
+        if (errorMsg) *errorMsg = "Invalid barcode: Barcode must be exactly 6 digits.";
+        return false;
+    }
+    for (char c : product.barcode) {
+        if (c < '0' || c > '9') {
+            if (errorMsg) *errorMsg = "Invalid barcode: Barcode must consist of numeric digits only.";
+            return false;
+        }
+    }
+    if (product.barcode[0] == '0') {
+        if (errorMsg) *errorMsg = "Invalid barcode: Barcode must start with a non-zero digit (1-9).";
+        return false;
+    }
+
+    // 7. Validate other required product fields
+    if (product.name.empty()) {
+        if (errorMsg) *errorMsg = "Product name cannot be empty.";
+        return false;
+    }
+    if (product.acronym.empty() || product.acronym.length() > 8) {
+        if (errorMsg) *errorMsg = "Product acronym must be between 1 and 8 characters.";
+        return false;
+    }
+    if (product.unitPrice < 0.0) {
+        if (errorMsg) *errorMsg = "Product price cannot be negative.";
+        return false;
+    }
+    if (product.discountPerUnit < 0.0) {
+        if (errorMsg) *errorMsg = "Discount cannot be negative.";
+        return false;
+    }
+    if (product.discountPerUnit > product.unitPrice) {
+        if (errorMsg) *errorMsg = "Discount cannot exceed unit price.";
+        return false;
+    }
+    if (product.availableQuantity < 0) {
+        if (errorMsg) *errorMsg = "Stock quantity cannot be negative.";
+        return false;
+    }
+
+    return true;
+}
+
+bool ProductBillingService::addProduct(const ProductInfo& product, std::string* errorMsg) {
+    if (!validateBarcodeCategory(product, errorMsg)) {
+        return false;
+    }
+
+    std::string catId = product.barcode.substr(0, 2);
+    ProductInfo toAdd = product;
+    toAdd.categoryId = catId;
+    const ProductBilling::Category* catObj = m_categoryManager.findCategoryById(catId);
+    if (catObj && (toAdd.category.empty() || toAdd.category == catId)) {
+        toAdd.category = catObj->name;
+    }
+
+    ProductBilling::Product p = toProduct(toAdd);
+    if (!m_productManager.addProduct(p, errorMsg)) {
+        return false;
+    }
+
+    if (!saveCatalog(errorMsg)) {
+        m_productManager.removeProduct(product.barcode);
+        return false;
+    }
+
+    return true;
+}
+
+bool ProductBillingService::updateProduct(const ProductInfo& product, std::string* errorMsg) {
+    if (!validateBarcodeCategory(product, errorMsg)) {
+        return false;
+    }
+
+    std::string catId = product.barcode.substr(0, 2);
+    const ProductBilling::Product* existing = m_productManager.findProductByBarcode(product.barcode);
+    if (!existing && product.id > 0) {
+        ProductInfo info;
+        if (findProductById(product.id, info)) {
+            existing = m_productManager.findProductByBarcode(info.barcode);
+        }
+    }
+    if (!existing) {
+        if (errorMsg) *errorMsg = "Product with barcode '" + product.barcode + "' not found.";
+        return false;
+    }
+    std::string oldBarcode = existing->getBarcode();
+    ProductBilling::Product backup = *existing;
+
+    ProductInfo toUpdate = product;
+    toUpdate.categoryId = catId;
+    const ProductBilling::Category* catObj = m_categoryManager.findCategoryById(catId);
+    if (catObj && (toUpdate.category.empty() || toUpdate.category == catId)) {
+        toUpdate.category = catObj->name;
+    }
+
+    ProductBilling::Product p = toProduct(toUpdate);
+    if (oldBarcode != product.barcode) {
+        m_productManager.removeProduct(oldBarcode);
+        if (!m_productManager.addProduct(p, errorMsg)) {
+            m_productManager.addProduct(backup, nullptr);
+            return false;
+        }
+    } else {
+        if (!m_productManager.updateProduct(p, errorMsg)) {
+            return false;
+        }
+    }
+
+    if (!saveCatalog(errorMsg)) {
+        if (oldBarcode != product.barcode) {
+            m_productManager.removeProduct(product.barcode);
+            m_productManager.addProduct(backup, nullptr);
+        } else {
+            m_productManager.updateProduct(backup, nullptr);
+        }
+        return false;
+    }
+
+    return true;
+}
+
 bool ProductBillingService::loadCatalog(const std::string& filePath) {
     std::string canonicalPath = resolveProductFilePath(filePath);
     std::string status;
@@ -126,13 +485,22 @@ int ProductBillingService::extractNumericId(const std::string& productIdStr) {
     return (id > 0) ? id : 100;
 }
 
-ProductInfo ProductBillingService::toProductInfo(const ProductBilling::Product& product) {
+ProductInfo ProductBillingService::toProductInfo(const ProductBilling::Product& product) const {
     ProductInfo info;
     info.id = extractNumericId(product.getProductId());
     info.barcode = product.getBarcode();
     info.acronym = product.getAcronym();
     info.name = product.getName();
-    info.category = product.getCategory().empty() ? (product.getMeasurementUnit() == "weight" ? "Bulk & Staples" : "Packaged Goods") : product.getCategory();
+    std::string catId = product.getCategoryId();
+    info.categoryId = catId;
+    const ProductBilling::Category* catObj = m_categoryManager.findCategoryById(catId);
+    if (catObj) {
+        info.category = catObj->name;
+    } else if (!product.getCategory().empty()) {
+        info.category = product.getCategory();
+    } else {
+        info.category = (product.getMeasurementUnit() == "weight" ? "Bulk & Staples" : "Packaged Goods");
+    }
     info.unit = product.getMeasurementUnit();
     info.unitPrice = product.getPrice();
     info.taxRate = product.getTaxRateFraction(); // e.g. 0.05 for 5%
@@ -327,8 +695,14 @@ bool ProductBillingService::commitOrderStock(const BillInfo& bill, std::string* 
         return true;
     }
 
-    // Prevent double stock deduction if this bill is already marked Paid
+    // Prevent double stock deduction if this bill is already marked Paid or already committed
     if (bill.paymentStatus == "Paid") {
+        return true;
+    }
+    if (!bill.billId.empty() && m_committedOrderIds.find(bill.billId) != m_committedOrderIds.end()) {
+        return true;
+    }
+    if (!bill.orderId.empty() && m_committedOrderIds.find(bill.orderId) != m_committedOrderIds.end()) {
         return true;
     }
 
@@ -386,6 +760,13 @@ bool ProductBillingService::commitOrderStock(const BillInfo& bill, std::string* 
             *errorMsg = "Persistence failed: " + saveErr + " (In-memory stock was rolled back).";
         }
         return false;
+    }
+
+    if (!bill.billId.empty()) {
+        m_committedOrderIds.insert(bill.billId);
+    }
+    if (!bill.orderId.empty()) {
+        m_committedOrderIds.insert(bill.orderId);
     }
 
     return true;

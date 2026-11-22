@@ -33,6 +33,7 @@
 //      - Safe destruction of moved-from objects
 // ----------------------------------------------------------------------------
 
+#include "Category.h"
 #include "Product.h"
 #include "ProductManager.h"
 #include "Billing.h"
@@ -633,6 +634,67 @@ void testDynamicArrayLifecycle() {
 }
 
 // ----------------------------------------------------------------------------
+// Test 9: Category Management Specifications
+// ----------------------------------------------------------------------------
+void testCategoryManagement() {
+    std::cout << "\n=== TEST SUITE 9: Category Management Specifications ===\n";
+
+    // 9.1 Valid Category entity
+    Category c1("10", "Dairy & Bakery", "DAIRY");
+    recordTest("Valid Category ID (2 digits), name and acronym", c1.isValid());
+    recordTest("Category::toFileRecord ends with '#'", c1.toFileRecord() == "10 Dairy & Bakery DAIRY #");
+
+    // 9.2 Category parsing from delimited string ending with '#'
+    std::string err;
+    Category parsed = Category::fromDelimitedString("20 Beverages & Spreads BEV #", &err);
+    recordTest("Category::fromDelimitedString correctly parses 2-digit ID, multi-word name, and acronym",
+               parsed.isValid() && parsed.id == "20" && parsed.name == "Beverages & Spreads" && parsed.acronym == "BEV");
+
+    // 9.3 Category validation rejects invalid IDs and acronyms
+    Category cBadId("5", "Short ID", "SHORT");
+    recordTest("Validation rejects 1-digit category ID", !cBadId.isValid());
+
+    Category cZeroId("01", "Zero Leading ID", "ZERO");
+    recordTest("Validation rejects category ID starting with 0 (must be 10-99)", !cZeroId.isValid());
+
+    Category cLongAcr("30", "Confectionery", "VERYLONGACRONYM");
+    recordTest("Validation rejects category acronym exceeding 8 characters", !cLongAcr.isValid());
+
+    Category cMissingHash = Category::fromDelimitedString("30 Confectionery CONF", &err);
+    recordTest("Parsing rejects record missing '#' terminator", !cMissingHash.isValid());
+
+    // 9.4 CategoryManager operations
+    CategoryManager catMgr;
+    recordTest("CategoryManager initialized with 0 categories", catMgr.getCategoryCount() == 0);
+
+    recordTest("addCategory() succeeds for unique ID", catMgr.addCategory(c1));
+    recordTest("addCategory() rejects duplicate Category ID '10'", !catMgr.addCategory(Category("10", "Duplicate Dairy", "DAIRY2")));
+    recordTest("categoryExists('10') returns true", catMgr.categoryExists("10"));
+    recordTest("categoryExists('99') returns false", !catMgr.categoryExists("99"));
+
+    // 9.5 Category Editing
+    Category cUpdated("10", "Dairy, Bakery & Chilled", "DAIRY");
+    recordTest("updateCategory() succeeds for existing category", catMgr.updateCategory(cUpdated));
+    const Category* foundCat = catMgr.findCategoryById("10");
+    recordTest("findCategoryById('10') reflects updated name in-place without creating duplicate",
+               foundCat != nullptr && foundCat->name == "Dairy, Bakery & Chilled" && catMgr.getCategoryCount() == 1);
+
+    // 9.6 Category Persistence
+    const std::string testCatFile = "test_categories_temp.txt";
+    catMgr.addCategory(parsed);
+    recordTest("CategoryManager::saveToFile succeeds", catMgr.saveToFile(testCatFile));
+
+    CategoryManager reloadedMgr;
+    recordTest("CategoryManager::loadFromFile loads persisted categories", reloadedMgr.loadFromFile(testCatFile));
+    recordTest("Reloaded category count matches (2 categories)", reloadedMgr.getCategoryCount() == 2);
+    recordTest("Reloaded category ID '20' has correct name",
+               reloadedMgr.categoryExists("20") && reloadedMgr.findCategoryById("20")->name == "Beverages & Spreads");
+
+    // Clean up temporary test file
+    std::remove(testCatFile.c_str());
+}
+
+// ----------------------------------------------------------------------------
 // Main Execution
 // ----------------------------------------------------------------------------
 int main() {
@@ -650,6 +712,7 @@ int main() {
     testInventoryCommitment();
     testGuiReadyData();
     testDynamicArrayLifecycle();
+    testCategoryManagement();
 
     std::cout << "\n=================================================================\n";
     std::cout << "  TEST RESULTS SUMMARY\n";
