@@ -47,13 +47,9 @@ QPushButton* ManagerView::makeButton(const QString& text, const QString& color, 
 // ---------------------------------------------------------------------------
 ManagerView::ManagerView(IProductService* productService, QWidget* parent)
     : QWidget(parent), m_productService(productService) {
-    // Seed a few default categories
-    m_categories.push_back({"Dairy & Milk",    "Fresh dairy products"});
-    m_categories.push_back({"Bakery & Bread",  "Baked goods"});
-    m_categories.push_back({"Grains & Rice",   "Grain staples"});
-    m_categories.push_back({"Beverages",       "Drinks and juices"});
-    m_categories.push_back({"Packaged Goods",  "Canned and packaged items"});
-    m_categories.push_back({"Bulk & Staples",  "Bulk purchased items"});
+    if (m_productService) {
+        m_categories = m_productService->getAllCategories();
+    }
 
     // Seed a demo season
     m_seasons.push_back({"Eid Sale", "2026-03-20", "2026-04-05", 15.0, false});
@@ -191,9 +187,10 @@ QWidget* ManagerView::buildCategoryTab() {
     lTitle->setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F;");
     leftCol->addWidget(lTitle);
 
-    m_categoryTable = makeTable({"#", "Category Name", "Description"}, page);
+    m_categoryTable = makeTable({"Category ID", "Category Name", "Acronym"}, page);
     m_categoryTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_categoryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_categoryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_categoryTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     connect(m_categoryTable, &QTableWidget::itemSelectionChanged,
             this, &ManagerView::onCategoryTableSelectionChanged);
     leftCol->addWidget(m_categoryTable, 1);
@@ -220,22 +217,32 @@ QWidget* ManagerView::buildCategoryTab() {
     auto* form = new QFormLayout();
     form->setSpacing(10);
 
+    m_catIdInput = new QLineEdit(rightFrame);
+    m_catIdInput->setPlaceholderText("2-digit ID (e.g. 10 through 99)");
+    m_catIdInput->setMaxLength(2);
+    m_catIdInput->setStyleSheet(
+        "background-color: #FFFFFF; color: #111827; border: 1px solid #D1D5DB;"
+        "border-radius: 4px; padding: 6px 10px; font-size: 13px;"
+    );
+
     m_catNameInput = new QLineEdit(rightFrame);
-    m_catNameInput->setPlaceholderText("e.g. Dairy & Milk");
+    m_catNameInput->setPlaceholderText("e.g. Dairy & Bakery");
     m_catNameInput->setStyleSheet(
         "background-color: #FFFFFF; color: #111827; border: 1px solid #D1D5DB;"
         "border-radius: 4px; padding: 6px 10px; font-size: 13px;"
     );
 
-    m_catDescInput = new QLineEdit(rightFrame);
-    m_catDescInput->setPlaceholderText("Short description (optional)");
-    m_catDescInput->setStyleSheet(
+    m_catAcrInput = new QLineEdit(rightFrame);
+    m_catAcrInput->setPlaceholderText("e.g. DAIRY (max 8 characters)");
+    m_catAcrInput->setMaxLength(8);
+    m_catAcrInput->setStyleSheet(
         "background-color: #FFFFFF; color: #111827; border: 1px solid #D1D5DB;"
         "border-radius: 4px; padding: 6px 10px; font-size: 13px;"
     );
 
+    form->addRow("Category ID (2-digit) *:", m_catIdInput);
     form->addRow("Category Name *:", m_catNameInput);
-    form->addRow("Description:", m_catDescInput);
+    form->addRow("Category Acronym (max 8) *:", m_catAcrInput);
     rightLayout->addLayout(form);
 
     auto* btnRow = new QHBoxLayout();
@@ -553,6 +560,8 @@ QWidget* ManagerView::buildReportsTab() {
 // ---------------------------------------------------------------------------
 void ManagerView::refreshCatalog() {
     if (!m_productService) return;
+    m_categories = m_productService->getAllCategories();
+    refreshCategoryTable();
     auto products = m_productService->getAllProducts();
     refreshProductTable(products);
     refreshInventoryTable(products);
@@ -564,13 +573,14 @@ void ManagerView::refreshCatalog() {
 void ManagerView::refreshCategoryTable() {
     m_categoryTable->setRowCount(static_cast<int>(m_categories.size()));
     for (int i = 0; i < static_cast<int>(m_categories.size()); ++i) {
-        auto* num  = new QTableWidgetItem(QString::number(i + 1));
-        auto* name = new QTableWidgetItem(m_categories[i].name);
-        auto* desc = new QTableWidgetItem(m_categories[i].description);
-        num->setTextAlignment(Qt::AlignCenter);
-        m_categoryTable->setItem(i, 0, num);
-        m_categoryTable->setItem(i, 1, name);
-        m_categoryTable->setItem(i, 2, desc);
+        auto* idItem   = new QTableWidgetItem(QString::fromStdString(m_categories[i].id));
+        auto* nameItem = new QTableWidgetItem(QString::fromStdString(m_categories[i].name));
+        auto* acrItem  = new QTableWidgetItem(QString::fromStdString(m_categories[i].acronym));
+        idItem->setTextAlignment(Qt::AlignCenter);
+        acrItem->setTextAlignment(Qt::AlignCenter);
+        m_categoryTable->setItem(i, 0, idItem);
+        m_categoryTable->setItem(i, 1, nameItem);
+        m_categoryTable->setItem(i, 2, acrItem);
     }
 }
 
@@ -708,31 +718,61 @@ void ManagerView::onCategoryTableSelectionChanged() {
     bool sel = (row >= 0 && row < static_cast<int>(m_categories.size()));
     m_editCatBtn->setEnabled(sel);
     if (sel) {
-        m_catNameInput->setText(m_categories[row].name);
-        m_catDescInput->setText(m_categories[row].description);
+        m_catIdInput->setText(QString::fromStdString(m_categories[row].id));
+        m_catIdInput->setReadOnly(true);
+        m_catNameInput->setText(QString::fromStdString(m_categories[row].name));
+        m_catAcrInput->setText(QString::fromStdString(m_categories[row].acronym));
+        m_catStatusLabel->setText("");
+    } else {
+        m_catIdInput->setReadOnly(false);
     }
 }
 
 void ManagerView::onAddCategoryClicked() {
+    QString id   = m_catIdInput->text().trimmed();
     QString name = m_catNameInput->text().trimmed();
-    if (name.isEmpty()) {
+    QString acr  = m_catAcrInput->text().trimmed();
+
+    if (id.length() != 2 || !id[0].isDigit() || !id[1].isDigit()) {
         m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
-        m_catStatusLabel->setText("Category name cannot be empty.");
+        m_catStatusLabel->setText("Category ID must be exactly 2 numeric digits (e.g. 10 through 99).");
         return;
     }
-    for (const auto& c : m_categories) {
-        if (c.name.toLower() == name.toLower()) {
-            m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
-            m_catStatusLabel->setText("A category with this name already exists.");
-            return;
-        }
+    if (id[0] == '0') {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText("Category ID must start with a non-zero digit (10-99).");
+        return;
     }
-    m_categories.push_back({name, m_catDescInput->text().trimmed()});
-    refreshCategoryTable();
-    m_catNameInput->clear();
-    m_catDescInput->clear();
-    m_catStatusLabel->setStyleSheet("font-size: 12px; color: #166534;");
-    m_catStatusLabel->setText(QString("Category '%1' added successfully.").arg(name));
+    if (name.isEmpty()) {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText("Category Name cannot be empty.");
+        return;
+    }
+    if (acr.isEmpty() || acr.length() > 8) {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText("Category Acronym must be between 1 and 8 characters.");
+        return;
+    }
+
+    CategoryInfo cat;
+    cat.id = id.toStdString();
+    cat.name = name.toStdString();
+    cat.acronym = acr.toUpper().toStdString();
+
+    std::string err;
+    if (m_productService && m_productService->addCategory(cat, &err)) {
+        refreshCatalog();
+        m_catIdInput->clear();
+        m_catIdInput->setReadOnly(false);
+        m_catNameInput->clear();
+        m_catAcrInput->clear();
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #166534;");
+        m_catStatusLabel->setText(QString("Category '%1' (ID %2) added successfully and saved to PCategory.txt.")
+                                    .arg(name).arg(id));
+    } else {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText(QString("Failed to add category: %1").arg(QString::fromStdString(err)));
+    }
 }
 
 void ManagerView::onEditCategoryClicked() {
@@ -742,17 +782,35 @@ void ManagerView::onEditCategoryClicked() {
         m_catStatusLabel->setText("Select a category from the table to edit it.");
         return;
     }
+    QString id   = m_catIdInput->text().trimmed();
     QString name = m_catNameInput->text().trimmed();
+    QString acr  = m_catAcrInput->text().trimmed();
+
     if (name.isEmpty()) {
         m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
-        m_catStatusLabel->setText("Category name cannot be empty.");
+        m_catStatusLabel->setText("Category Name cannot be empty.");
         return;
     }
-    m_categories[row].name = name;
-    m_categories[row].description = m_catDescInput->text().trimmed();
-    refreshCategoryTable();
-    m_catStatusLabel->setStyleSheet("font-size: 12px; color: #166534;");
-    m_catStatusLabel->setText(QString("Category updated to '%1'.").arg(name));
+    if (acr.isEmpty() || acr.length() > 8) {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText("Category Acronym must be between 1 and 8 characters.");
+        return;
+    }
+
+    CategoryInfo cat;
+    cat.id = id.toStdString();
+    cat.name = name.toStdString();
+    cat.acronym = acr.toUpper().toStdString();
+
+    std::string err;
+    if (m_productService && m_productService->updateCategory(cat, &err)) {
+        refreshCatalog();
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #166534;");
+        m_catStatusLabel->setText(QString("Category '%1' updated successfully and persisted to PCategory.txt.").arg(name));
+    } else {
+        m_catStatusLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+        m_catStatusLabel->setText(QString("Failed to update category: %1").arg(QString::fromStdString(err)));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -826,9 +884,13 @@ void ManagerView::onInspectClicked() {
 }
 
 void ManagerView::showProductDialog(bool isEdit, const ProductInfo& existing) {
+    if (m_productService) {
+        m_categories = m_productService->getAllCategories();
+    }
+
     QDialog dlg(this);
     dlg.setWindowTitle(isEdit ? "Edit Product" : "Add New Product");
-    dlg.setMinimumWidth(480);
+    dlg.setMinimumWidth(500);
 
     auto* form = new QFormLayout(&dlg);
     form->setSpacing(10);
@@ -866,29 +928,42 @@ void ManagerView::showProductDialog(bool isEdit, const ProductInfo& existing) {
     };
 
     auto* barcodeLE = makeLE(QString::fromStdString(existing.barcode));
-    barcodeLE->setReadOnly(isEdit); // barcode is immutable when editing
-    if (isEdit) barcodeLE->setStyleSheet(
-        "background-color: #F3F4F6; color: #6B7280; border: 1px solid #D1D5DB;"
-        "border-radius: 4px; padding: 6px 10px; font-size: 13px;"
-    );
     auto* nameLE    = makeLE(QString::fromStdString(existing.name));
     auto* acronymLE = makeLE(QString::fromStdString(existing.acronym));
     auto* unitLE    = makeLE(QString::fromStdString(existing.unit));
 
-    // Category combo
+    // Category combo populated from fresh catalog categories
     auto* catCombo = new QComboBox(&dlg);
     catCombo->setStyleSheet(
         "background-color: #FFFFFF; color: #111827; border: 1px solid #D1D5DB;"
         "border-radius: 4px; padding: 6px 10px; font-size: 13px;"
     );
-    for (const auto& c : m_categories) catCombo->addItem(c.name);
     int catIdx = 0;
-    for (int k = 0; k < catCombo->count(); ++k) {
-        if (catCombo->itemText(k) == QString::fromStdString(existing.category)) {
-            catIdx = k; break;
+    for (size_t i = 0; i < m_categories.size(); ++i) {
+        const auto& c = m_categories[i];
+        QString label = QString("[%1] %2").arg(QString::fromStdString(c.id)).arg(QString::fromStdString(c.name));
+        catCombo->addItem(label, QString::fromStdString(c.id));
+        if (c.id == existing.categoryId || c.name == existing.category ||
+            (!existing.barcode.empty() && existing.barcode.rfind(c.id, 0) == 0)) {
+            catIdx = static_cast<int>(i);
         }
     }
-    catCombo->setCurrentIndex(catIdx);
+    if (catCombo->count() > 0) {
+        catCombo->setCurrentIndex(catIdx);
+    }
+
+    if (!isEdit && barcodeLE->text().isEmpty() && catCombo->count() > 0) {
+        barcodeLE->setText(catCombo->currentData().toString());
+    }
+    QObject::connect(catCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), [&](int idx){
+        if (!isEdit && idx >= 0) {
+            QString selectedCatId = catCombo->itemData(idx).toString();
+            QString currentBarcode = barcodeLE->text().trimmed();
+            if (currentBarcode.isEmpty() || currentBarcode.length() <= 2) {
+                barcodeLE->setText(selectedCatId);
+            }
+        }
+    });
 
     auto* priceSpin   = makeDSpin(existing.unitPrice,       0.0, 999999.0);
     auto* taxSpin     = makeDSpin(existing.taxRate * 100.0, 0.0, 100.0);
@@ -899,7 +974,7 @@ void ManagerView::showProductDialog(bool isEdit, const ProductInfo& existing) {
     form->addRow("Barcode (6-digit) *:", barcodeLE);
     form->addRow("Product Name *:",      nameLE);
     form->addRow("Acronym (max 8) *:",   acronymLE);
-    form->addRow("Category:",            catCombo);
+    form->addRow("Category (2-digit ID) *:", catCombo);
     form->addRow("Unit of Measure *:",   unitLE);
     form->addRow("Unit Price (Rs.) *:",  priceSpin);
     form->addRow("Tax Rate:",            taxSpin);
@@ -907,7 +982,7 @@ void ManagerView::showProductDialog(bool isEdit, const ProductInfo& existing) {
     form->addRow("Available Stock:",     stockSpin);
 
     auto* msgLabel = new QLabel("", &dlg);
-    msgLabel->setStyleSheet("font-size: 12px; color: #DC2626;");
+    msgLabel->setStyleSheet("font-size: 12px; color: #DC2626; font-weight: bold;");
     msgLabel->setWordWrap(true);
     form->addRow("", msgLabel);
 
@@ -924,59 +999,127 @@ void ManagerView::showProductDialog(bool isEdit, const ProductInfo& existing) {
         QString name    = nameLE->text().trimmed();
         QString acronym = acronymLE->text().trimmed();
         QString unit    = unitLE->text().trimmed();
+
         if (barcode.isEmpty() || name.isEmpty() || acronym.isEmpty() || unit.isEmpty()) {
-            msgLabel->setText("Barcode, Name, Acronym and Unit are required.");
+            QString err = "Barcode, Product Name, Acronym and Unit of Measure are required fields.";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Validation Error", err);
             return;
         }
+
+        QString selectedCatId = catCombo->currentData().toString();
+        if (selectedCatId.isEmpty() && catCombo->currentIndex() >= 0 &&
+            catCombo->currentIndex() < static_cast<int>(m_categories.size())) {
+            selectedCatId = QString::fromStdString(m_categories[catCombo->currentIndex()].id);
+        }
+
+        // 1. Check barcode contains at least 2 characters
+        if (barcode.length() < 2) {
+            QString err = "Invalid barcode: Barcode must contain at least 2 characters.";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Barcode", err);
+            return;
+        }
+
+        // 2. Check first two characters are numeric digits
+        if (!barcode[0].isDigit() || !barcode[1].isDigit()) {
+            QString err = "Invalid barcode: The first two characters must be numeric digits.";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Barcode", err);
+            return;
+        }
+
+        // 3. Compare those exact two digits with the selected Category ID
+        QString barcodePrefix = barcode.left(2);
+        if (barcodePrefix != selectedCatId) {
+            QString err = QString("Invalid barcode: The first two digits must match the selected Category ID (%1).\n\n"
+                                  "Selected Category ID : %1\n"
+                                  "Entered Barcode      : %2 (starts with '%3')\n\n"
+                                  "Please correct the barcode so that it begins with '%1' (e.g. %10001).")
+                            .arg(selectedCatId)
+                            .arg(barcode)
+                            .arg(barcodePrefix);
+            msgLabel->setText(QString("Invalid barcode: The first two digits must match the selected Category ID (%1).").arg(selectedCatId));
+            QMessageBox::warning(&dlg, "Barcode Category Mismatch", err);
+            return;
+        }
+
+        // 4. Validate exact 6-digit length & format
         if (barcode.length() != 6) {
-            msgLabel->setText("Barcode must be exactly 6 digits.");
+            QString err = "Invalid barcode: Barcode must be exactly 6 digits.";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Barcode", err);
+            return;
+        }
+        for (QChar ch : barcode) {
+            if (!ch.isDigit()) {
+                QString err = "Invalid barcode: Barcode must contain numeric digits only.";
+                msgLabel->setText(err);
+                QMessageBox::warning(&dlg, "Invalid Barcode", err);
+                return;
+            }
+        }
+        if (barcode[0] == '0') {
+            QString err = "Invalid barcode: Barcode must start with a non-zero digit (1-9).";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Barcode", err);
             return;
         }
         if (acronym.length() > 8) {
-            msgLabel->setText("Acronym must be 8 characters or fewer.");
+            QString err = "Product acronym must be 8 characters or fewer.";
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Acronym", err);
             return;
         }
 
-        // Build a ProductInfo and update via the service
-        ProductInfo updated;
-        updated.barcode         = barcode.toStdString();
-        updated.name            = name.toStdString();
-        updated.acronym         = acronym.toStdString();
-        updated.unit            = unit.toStdString();
-        updated.category        = catCombo->currentText().toStdString();
-        updated.unitPrice       = priceSpin->value();
-        updated.taxRate         = taxSpin->value() / 100.0;
-        updated.discountPerUnit = discSpin->value();
-        updated.availableQuantity = stockSpin->value();
-        updated.id              = existing.id;
+        if (discSpin->value() > priceSpin->value()) {
+            QString err = QString("Discount/Unit (Rs. %1) cannot exceed Unit Price (Rs. %2).")
+                            .arg(discSpin->value(), 0, 'f', 2).arg(priceSpin->value(), 0, 'f', 2);
+            msgLabel->setText(err);
+            QMessageBox::warning(&dlg, "Invalid Discount", err);
+            return;
+        }
 
-        // updateProductStock covers stock changes; full product add/edit
-        // is not yet part of IProductService interface (Eman's backend responsibility).
-        // For now we update stock (which IS in the interface) and show info about the rest.
+        // Build ProductInfo with explicit categoryId and persist via service
+        ProductInfo updated;
+        updated.id                = existing.id;
+        updated.barcode           = barcode.toStdString();
+        updated.name              = name.toStdString();
+        updated.acronym           = acronym.toStdString();
+        updated.categoryId        = selectedCatId.toStdString();
+        QString catText           = catCombo->currentText();
+        int bracketClose          = catText.indexOf("] ");
+        updated.category          = (bracketClose >= 0) ? catText.mid(bracketClose + 2).toStdString() : catText.toStdString();
+        updated.unit              = unit.toStdString();
+        updated.unitPrice         = priceSpin->value();
+        updated.taxRate           = taxSpin->value() / 100.0;
+        updated.discountPerUnit   = discSpin->value();
+        updated.availableQuantity = stockSpin->value();
+
         std::string err;
         if (m_productService) {
-            if (!isEdit) {
-                QMessageBox::information(this, "Add Product – Backend Pending",
-                    "Adding a completely new product to the catalog requires Eman's "
-                    "product management backend integration.\n\n"
-                    "The product form has been designed and is ready to pass data "
-                    "to addOrUpdateProduct() once that interface is available.\n\n"
-                    "Stock updates for existing products work now.");
-                dlg.accept();
-                return;
+            bool success = false;
+            if (isEdit) {
+                success = m_productService->updateProduct(updated, &err);
+            } else {
+                success = m_productService->addProduct(updated, &err);
             }
-            // For edit: update stock which IS available
-            if (!m_productService->updateProductStock(updated.barcode, updated.availableQuantity, &err)) {
+            if (!success) {
                 msgLabel->setText(QString::fromStdString(err));
+                QMessageBox::warning(&dlg, isEdit ? "Update Failed" : "Add Product Failed",
+                    QString::fromStdString(err));
                 return;
             }
         }
+
         dlg.accept();
         refreshCatalog();
         QMessageBox::information(this, isEdit ? "Product Updated" : "Product Added",
             isEdit ?
-            QString("Stock for '%1' updated to %2.").arg(name).arg(stockSpin->value()) :
-            QString("Product entry recorded."));
+            QString("Product '%1' (%2) updated successfully and saved to Product.txt.")
+                .arg(name).arg(barcode) :
+            QString("Product '%1' (%2) added successfully and saved to Product.txt.")
+                .arg(name).arg(barcode));
     });
     connect(btns, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     dlg.exec();

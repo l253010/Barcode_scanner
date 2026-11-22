@@ -1,0 +1,9 @@
+# PCategory.txt - Product Categories Catalog
+# Format: <2-digit Category ID> <Category Name> <Acronym> #
+10 Dairy & Bakery DAIRY #
+12 Coffee & Beverages COF #
+20 Beverages & Spreads BEV #
+30 Confectionery & Oils CONF #
+40 Grains & Staples GRAIN #
+50 Soft Drinks & Juices DRINK #
+60 dairy&milk CHOCOLAT #

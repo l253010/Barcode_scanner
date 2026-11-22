@@ -29,7 +29,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Compiling test_product_module.exe...
-cl /nologo /EHsc /std:c++17 /W4 Product.cpp ProductManager.cpp Billing.cpp test_product_module.cpp /Fe:test_product_module.exe
+cl /nologo /EHsc /std:c++17 /W4 Category.cpp Product.cpp ProductManager.cpp Billing.cpp test_product_module.cpp /Fe:test_product_module.exe
 
 if %ERRORLEVEL% neq 0 (
     echo Compilation failed with error code %ERRORLEVEL%.

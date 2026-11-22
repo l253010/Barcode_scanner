@@ -31,7 +31,7 @@ if %ERRORLEVEL% neq 0 (
 echo Compiling pos_integration_tests.exe...
 cl /nologo /EHsc /std:c++17 /W4 /utf-8 /I. /I.. /I../product_module /I../barcode ^
    test_pos_integration.cpp ProductBillingService.cpp MockDataService.cpp ^
-   ../product_module/Product.cpp ../product_module/ProductManager.cpp ../product_module/Billing.cpp ^
+   ../product_module/Category.cpp ../product_module/Product.cpp ../product_module/ProductManager.cpp ../product_module/Billing.cpp ^
    /Fe:pos_integration_tests.exe
 
 if %ERRORLEVEL% neq 0 (

@@ -154,6 +154,13 @@ ScanOutcome scanBarcodeFromCamera(const ScanOptions& options) {
         // Fallback attempt with default backend
         cap.open(options.cameraIndex);
     }
+    if (!cap.isOpened() && options.cameraIndex == 0) {
+        // Additional fallback: attempt camera index 1 if index 0 is an inactive virtual device
+        cap.open(1, cv::CAP_DSHOW);
+        if (!cap.isOpened()) {
+            cap.open(1);
+        }
+    }
 
     if (!cap.isOpened()) {
         if (!options.presetCode.empty()) {

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -276,6 +277,199 @@ int main() {
     bool excessResult = service.commitOrderStock(excessBill, &excessErr);
     TEST_ASSERT(!excessResult, "commitOrderStock safely rejects order with quantity exceeding stock");
     TEST_ASSERT(!excessErr.empty(), "commitOrderStock provides detailed insufficient stock error message");
+
+    // TEST 23: Category Management Integration
+    std::cout << "\n=== TEST 23: Category Management Integration ===\n";
+    auto categories = service.getAllCategories();
+    TEST_ASSERT(categories.size() >= 6, "Service loads at least 6 baseline categories from PCategory.txt");
+    CategoryInfo dairyCat;
+    bool foundCat10 = service.findCategoryById("10", dairyCat);
+    TEST_ASSERT(foundCat10 && dairyCat.name.find("Dairy") != std::string::npos,
+                "findCategoryById('10') finds Dairy category");
+
+    CategoryInfo newCat{"60", "Snacks & Munchies", "SNACK"};
+    std::string catErr;
+    bool addCatSuccess = service.addCategory(newCat, &catErr);
+    TEST_ASSERT(addCatSuccess, "addCategory('60') succeeds for unique Category ID");
+
+    bool addDupCat = service.addCategory(CategoryInfo{"60", "Duplicate", "DUP"}, &catErr);
+    TEST_ASSERT(!addDupCat, "addCategory('60') rejects duplicate Category ID");
+
+    CategoryInfo updatedCat{"60", "Snacks, Chips & Nuts", "SNACK"};
+    bool updateCatSuccess = service.updateCategory(updatedCat, &catErr);
+    TEST_ASSERT(updateCatSuccess, "updateCategory('60') successfully updates category name");
+
+    // TEST 24: Product Management & Barcode-Category Association
+    std::cout << "\n=== TEST 24: Product Management & Barcode Association ===\n";
+    // 24.1 Product with valid category association (barcode starts with "60")
+    ProductInfo newProd;
+    newProd.barcode = "600001";
+    newProd.acronym = "CHIP-50G";
+    newProd.name = "Crispy Potato Chips 50g";
+    newProd.unit = "count";
+    newProd.unitPrice = 2.50;
+    newProd.discountPerUnit = 0.50; // $0.50 discount
+    newProd.taxRate = 0.05;
+    newProd.availableQuantity = 25;
+
+    std::string prodErr;
+    bool addProdSuccess = service.addProduct(newProd, &prodErr);
+    TEST_ASSERT(addProdSuccess, "addProduct('600001') succeeds when barcode starts with valid Category ID '60'");
+
+    // 24.2 Barcode lookup finds the newly added product
+    ProductInfo foundNewProd;
+    bool foundNew = service.findProductByBarcode("600001", foundNewProd);
+    TEST_ASSERT(foundNew && foundNewProd.name == "Crispy Potato Chips 50g",
+                "findProductByBarcode('600001') returns newly added product");
+    TEST_ASSERT(doublesEqual(foundNewProd.discountPerUnit, 0.50),
+                "Product-level discount ($0.50) is preserved in catalog");
+
+    // 24.3 Product-level discount applied in bill calculation
+    std::vector<OrderItem> discCart;
+    OrderItem discItem;
+    discItem.product = foundNewProd;
+    discItem.quantity = 2; // 2 * $2.50 = $5.00, discount = 2 * $0.50 = $1.00, taxable = $4.00, tax = $0.20, total = $4.20
+    discCart.push_back(discItem);
+    BillInfo discBill = service.generateBill("Discount Customer", "", discCart);
+    TEST_ASSERT(doublesEqual(discBill.totalWithoutTax, 5.00), "Subtotal before discount is $5.00");
+    TEST_ASSERT(doublesEqual(discBill.totalDiscount, 1.00), "Total discount applied is $1.00");
+    TEST_ASSERT(doublesEqual(discBill.totalTax, 0.20), "Tax on discounted subtotal is $0.20");
+    TEST_ASSERT(doublesEqual(discBill.totalPayable, 4.20), "Total payable is $4.20");
+
+    // 24.4 Rejection of product with nonexistent category ID
+    ProductInfo badCatProd = newProd;
+    badCatProd.barcode = "990001"; // Category "99" does not exist
+    bool badCatResult = service.addProduct(badCatProd, &prodErr);
+    TEST_ASSERT(!badCatResult, "addProduct('990001') rejected because Category ID '99' does not exist");
+
+    // 24.5 Rejection of product with discount > price
+    ProductInfo badDiscProd = newProd;
+    badDiscProd.barcode = "600002";
+    badDiscProd.discountPerUnit = 10.00; // price is $2.50
+    bool badDiscResult = service.addProduct(badDiscProd, &prodErr);
+    TEST_ASSERT(!badDiscResult, "addProduct() rejected when discount per unit exceeds unit price");
+
+    // TEST 25: Barcode Category ID Validation Regression Tests (All 10 Requirements)
+    std::cout << "\n=== TEST 25: Barcode Category ID Validation Regression Suite ===\n";
+    // Ensure category 60 exists for tests and clear any collision
+    CategoryInfo regCat60{"60", "Snacks & Munchies", "SNACK"};
+    service.addCategory(regCat60);
+    service.getProductManager().removeProduct("600001");
+
+    // Case 1: Category '60', barcode '600001' -> accepted
+    ProductInfo p1;
+    p1.barcode = "600001";
+    p1.categoryId = "60";
+    p1.category = "Snacks & Munchies";
+    p1.name = "Test Chips 60";
+    p1.acronym = "CHIP-60";
+    p1.unit = "count";
+    p1.unitPrice = 3.00;
+    p1.availableQuantity = 10;
+    std::string err1;
+    bool res1 = service.addProduct(p1, &err1);
+    TEST_ASSERT(res1, "Case 1: Category '60', barcode '600001' is accepted");
+
+    // Case 2: Category '60', barcode '100001' -> rejected
+    ProductInfo p2 = p1;
+    p2.barcode = "100001";
+    p2.categoryId = "60";
+    std::string err2;
+    bool res2 = service.addProduct(p2, &err2);
+    TEST_ASSERT(!res2, "Case 2: Category '60', barcode '100001' is rejected");
+    TEST_ASSERT(err2.find("must match the selected Category ID (60)") != std::string::npos,
+                "Case 2 error message correctly specifies expected Category ID (60)");
+
+    // Case 3: Category '10', barcode starting with '10' -> accepted
+    ProductInfo p3 = p1;
+    p3.barcode = "109999";
+    p3.categoryId = "10";
+    p3.category = "Dairy & Bakery";
+    p3.name = "Test Dairy 10";
+    p3.acronym = "DAIRY-10";
+    std::string err3;
+    bool res3 = service.addProduct(p3, &err3);
+    TEST_ASSERT(res3, "Case 3: Category '10', barcode '109999' is accepted");
+
+    // Case 4: Category '10', barcode '600001' -> rejected
+    ProductInfo p4 = p1;
+    p4.barcode = "600001";
+    p4.categoryId = "10";
+    p4.category = "Dairy & Bakery";
+    std::string err4;
+    bool res4 = service.addProduct(p4, &err4);
+    TEST_ASSERT(!res4, "Case 4: Category '10', barcode '600001' is rejected");
+    TEST_ASSERT(err4.find("must match the selected Category ID (10)") != std::string::npos,
+                "Case 4 error message correctly specifies expected Category ID (10)");
+
+    // Case 5: Category '20', barcode '200001' / '209999' -> accepted
+    ProductInfo p5 = p1;
+    p5.barcode = "209999";
+    p5.categoryId = "20";
+    p5.category = "Beverages & Spreads";
+    p5.name = "Test Juice 20";
+    p5.acronym = "JUICE-20";
+    std::string err5;
+    bool res5 = service.addProduct(p5, &err5);
+    TEST_ASSERT(res5, "Case 5: Category '20', barcode '209999' is accepted");
+
+    // Case 6: Barcode containing fewer than two characters -> rejected
+    ProductInfo p6 = p1;
+    p6.barcode = "6";
+    p6.categoryId = "60";
+    std::string err6;
+    bool res6 = service.addProduct(p6, &err6);
+    TEST_ASSERT(!res6, "Case 6: Barcode containing fewer than two characters ('6') is rejected");
+    TEST_ASSERT(err6.find("at least 2 characters") != std::string::npos,
+                "Case 6 error specifies barcode must contain at least 2 characters");
+
+    // Case 7: Barcode starting with non-numeric characters -> rejected
+    ProductInfo p7 = p1;
+    p7.barcode = "AB0001";
+    p7.categoryId = "60";
+    std::string err7;
+    bool res7 = service.addProduct(p7, &err7);
+    TEST_ASSERT(!res7, "Case 7: Barcode starting with non-numeric characters ('AB0001') is rejected");
+    TEST_ASSERT(err7.find("numeric digits") != std::string::npos,
+                "Case 7 error specifies first two characters must be numeric digits");
+
+    // Case 8: Nonexistent Category ID -> rejected
+    ProductInfo p8 = p1;
+    p8.barcode = "990001";
+    p8.categoryId = "99";
+    std::string err8;
+    bool res8 = service.addProduct(p8, &err8);
+    TEST_ASSERT(!res8, "Case 8: Nonexistent Category ID '99' is rejected");
+    TEST_ASSERT(err8.find("does not exist in PCategory.txt") != std::string::npos,
+                "Case 8 error specifies Category ID does not exist in PCategory.txt");
+
+    // Case 9: Editing a product with a mismatched barcode -> rejected
+    ProductInfo p9 = p1;
+    p9.barcode = "600001";
+    p9.categoryId = "10"; // Mismatch: barcode starts with 60, selected category is 10
+    std::string err9;
+    bool res9 = service.updateProduct(p9, &err9);
+    TEST_ASSERT(!res9, "Case 9: Editing product with mismatched barcode and category is rejected");
+    TEST_ASSERT(err9.find("must match the selected Category ID (10)") != std::string::npos,
+                "Case 9 error message specifies expected Category ID (10)");
+
+    // Case 10: Invalid product must not be written to Product.txt
+    // Verify file contents on disk
+    std::string prodFilePath = ProductBillingService::resolveProductFilePath();
+    std::ifstream prodFile(prodFilePath);
+    std::string fileContent((std::istreambuf_iterator<char>(prodFile)), std::istreambuf_iterator<char>());
+    prodFile.close();
+    bool noBadBarcode = (fileContent.find("AB0001") == std::string::npos) &&
+                        (fileContent.find("990001") == std::string::npos);
+    TEST_ASSERT(noBadBarcode, "Case 10: Invalid products were NOT written to Product.txt on disk");
+
+    // Cleanup regression test products and categories
+    service.getProductManager().removeProduct("600001");
+    service.getProductManager().removeProduct("109999");
+    service.getProductManager().removeProduct("209999");
+    service.saveCatalog();
+    service.getCategoryManager().removeCategory("60");
+    service.saveCategories();
 
     // Restore baseline stock levels for clean state
     service.updateProductStock("100001", 50);

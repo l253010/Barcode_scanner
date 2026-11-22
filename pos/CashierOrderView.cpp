@@ -830,8 +830,21 @@ void CashierOrderView::onQuickAddSelected(int index) {
 }
 
 void CashierOrderView::addProductToOrder(const ProductInfo& product, int quantity) {
+    if (product.availableQuantity <= 0) {
+        m_scanStatusLabel->setText(QString("<font color='#DC2626'>Cannot add '%1': Item is OUT OF STOCK.</font>")
+                                   .arg(QString::fromStdString(product.name)));
+        return;
+    }
+
     for (auto& item : m_cartItems) {
         if (item.product.id == product.id) {
+            if (item.quantity + quantity > product.availableQuantity) {
+                m_scanStatusLabel->setText(QString("<font color='#DC2626'>Cannot add more of '%1': Exceeds available stock (%2 available, %3 in cart).</font>")
+                                           .arg(QString::fromStdString(product.name))
+                                           .arg(product.availableQuantity)
+                                           .arg(item.quantity));
+                return;
+            }
             item.quantity += quantity;
             updateCartTable();
             updateSummary();
@@ -839,6 +852,15 @@ void CashierOrderView::addProductToOrder(const ProductInfo& product, int quantit
             return;
         }
     }
+
+    if (quantity > product.availableQuantity) {
+        m_scanStatusLabel->setText(QString("<font color='#DC2626'>Cannot add '%1': Requested %2 units, but only %3 available.</font>")
+                                   .arg(QString::fromStdString(product.name))
+                                   .arg(quantity)
+                                   .arg(product.availableQuantity));
+        return;
+    }
+
     OrderItem newItem;
     newItem.product  = product;
     newItem.quantity = quantity;
@@ -862,9 +884,9 @@ void CashierOrderView::updateCartTable() {
         setItem(1, QString::fromStdString(item.product.acronym), Qt::AlignCenter);
         setItem(2, QString("Rs. %1").arg(item.product.unitPrice, 0, 'f', 2), Qt::AlignRight | Qt::AlignVCenter);
 
-        // Qty spinner
+        // Qty spinner - clamped to available inventory
         auto* qtySpin = new QSpinBox(m_cartTable);
-        qtySpin->setRange(1, 999);
+        qtySpin->setRange(1, std::max(1, item.product.availableQuantity));
         qtySpin->setValue(item.quantity);
         qtySpin->setStyleSheet(
             "background-color: #FFFFFF; color: #111827; padding: 2px 4px;"
@@ -899,6 +921,11 @@ void CashierOrderView::updateCartTable() {
 
 void CashierOrderView::onQuantityChanged(int row, int newQty) {
     if (row >= 0 && row < static_cast<int>(m_cartItems.size())) {
+        if (newQty > m_cartItems[row].product.availableQuantity) {
+            newQty = m_cartItems[row].product.availableQuantity;
+            m_scanStatusLabel->setText(QString("<font color='#DC2626'>Quantity clamped to available stock (%1 units).</font>")
+                                       .arg(newQty));
+        }
         m_cartItems[row].quantity = newQty;
         updateSummary();
         updateDashboardMetrics();
@@ -972,6 +999,19 @@ void CashierOrderView::onGenerateBillClicked() {
             "Cannot generate a bill with an empty cart. Please scan or select at least one product.");
         return;
     }
+
+    // Validate that no item in cart exceeds current available inventory
+    for (const auto& item : m_cartItems) {
+        if (item.quantity > item.product.availableQuantity) {
+            QMessageBox::warning(this, "Stock Exceeded",
+                QString("Cannot checkout: '%1' has %2 in cart, but only %3 units are available in inventory.")
+                    .arg(QString::fromStdString(item.product.name))
+                    .arg(item.quantity)
+                    .arg(item.product.availableQuantity));
+            return;
+        }
+    }
+
     std::string custName    = m_customerNameInput->text().trimmed().toStdString();
     std::string custContact = m_customerContactInput->text().trimmed().toStdString();
     if (m_billingService) {

@@ -68,11 +68,13 @@ public:
     const std::string& getName() const;
     const std::string& getMeasurementUnit() const;
     double             getPrice() const;
+    double             getDiscountedPrice() const; // Effective unit price after discount
     double             getTaxAmount() const;       // Amount in PKR
     double             getDiscountPerUnit() const; // Discount on one unit in PKR
     int                getAvailableStock() const;
     const std::string& getBarcodeFilePath() const;
     const std::string& getCategory() const;
+    std::string        getCategoryId() const;      // First 2 digits of barcode
     const std::string& getDescription() const;
 
     // Derived compatibility getters
