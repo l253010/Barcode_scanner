@@ -56,7 +56,12 @@ set(POS_SOURCES
     product_module/ProductManager.h
     product_module/ProductManager.cpp
     product_module/Billing.h
+    billing/BillIdGenerator.h
+    billing/Bill.h
     product_module/Billing.cpp
+    billing/BillIdGenerator.cpp
+    billing/Bill.cpp
+    billing/ReportEngine.cpp
 
     # Camera Scanner & Real Barcode Decoding Integration
     barcode/BarcodeDecoder.h
@@ -99,6 +104,7 @@ target_include_directories(pos_app PRIVATE
 # Link against Qt6 Widgets and OpenCV
 target_link_libraries(pos_app PRIVATE
     Qt6::Widgets
+    Qt6::Pdf
     ${OpenCV_LIBS}
 )
 

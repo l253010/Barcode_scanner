@@ -5,6 +5,12 @@
 #include <sstream>
 #include <algorithm>
 
+// New billing system includes
+#include "billing/BillIdGenerator.h"
+#include "billing/Bill.h"
+#include "billing/DiscountEngine.h"
+#include "billing/PdfGenerator.h"
+
 ProductBillingService::ProductBillingService() {
     loadCatalog();
 }
@@ -174,19 +180,62 @@ BillInfo ProductBillingService::generateBill(const std::string& customerName,
 
     billInfo.items = items;
 
-    // Use pure ProductBilling::Bill engine to calculate financial totals
-    ProductBilling::Bill bill(billInfo.billId);
+    // ----- New unified billing flow -----
+    // 1️⃣ Create our own billing::Bill and fill basic info
+    billing::Bill myBill;
+    myBill.billId = billInfo.billId;
+    myBill.customerName = billInfo.customerName;
+    myBill.orderId = billInfo.orderId;
+    myBill.billTimestamp = std::time(nullptr);
+
+    // 2️⃣ Populate line items from the POS order
     for (const auto& item : items) {
-        const ProductBilling::Product* catalogProduct = m_productManager.findProductByBarcode(item.product.barcode);
-        ProductBilling::Product itemProduct = catalogProduct ? *catalogProduct : toProduct(item.product);
-        double itemDiscount = item.getTotalDiscount();
-        bill.addItem(itemProduct, item.quantity, itemDiscount);
+        std::string prodCode = item.product.acronym.empty() ? item.product.barcode : item.product.acronym;
+        double unitPrice = item.product.unitPriceWithoutTax; // fallback to 0 if member missing
+        double lineTotal = unitPrice * static_cast<double>(item.quantity);
+        double discountAmt = item.getTotalDiscount();
+        double discountPct = (lineTotal > 0.0) ? (discountAmt / lineTotal) * 100.0 : 0.0;
+        billing::BillItem bi{prodCode, unitPrice, item.quantity, discountPct};
+        myBill.items.push_back(bi);
     }
 
-    billInfo.totalWithoutTax = bill.calculateSubtotal();
-    billInfo.totalDiscount   = bill.calculateTotalDiscount();
-    billInfo.totalTax        = bill.calculateTotalTax();
-    billInfo.totalPayable    = bill.calculateFinalPayable();
+    // 3️⃣ Base totals (product‑level discounts & tax)
+    myBill.computeTotals();
+
+    // 4️⃣ Apply manager‑controlled special discount (currently 0 %)
+    billing::DiscountEngine::applySpecialDiscount(myBill, 0.0);
+
+    // 5️⃣ Apply seasonal discounts from Seasons.txt
+    auto seasons = billing::DiscountEngine::loadSeasons();
+    billing::DiscountEngine::applySeasonalDiscount(myBill, seasons);
+
+    // 6️⃣ Re‑compute after discounts
+    myBill.computeTotals();
+
+    // 7️⃣ Persist bill records
+    {
+        std::ofstream out("Bill.txt", std::ios::app);
+        if (out) out << myBill.serialize() << '\n';
+    }
+    {
+        std::ofstream out("BillDetail.txt", std::ios::app);
+        if (out) {
+            for (const auto& bi : myBill.items) {
+                out << myBill.billId << '|' << bi.productCode << '|' << bi.unitPriceWithoutTax << '|' << bi.quantity << '|' << bi.discountPercent << '\n';
+            }
+        }
+    }
+
+    // 8️⃣ Generate PDF receipt in an "output" folder
+    std::filesystem::create_directory("output");
+    std::string pdfPath = std::string("output/Bill_") + myBill.billId + ".pdf";
+    billing::PdfGenerator::createPdf(myBill, QString::fromStdString(pdfPath));
+
+    // 9️⃣ Populate BillInfo for the existing UI flow
+    billInfo.totalWithoutTax = myBill.totalWithoutTax;
+    billInfo.totalDiscount   = myBill.totalProductDiscounts + myBill.seasonalDiscount + myBill.specialDiscount;
+    billInfo.totalTax        = myBill.totalTax;
+    billInfo.totalPayable    = myBill.totalPayable;
     if (billInfo.totalPayable < 0.0) {
         billInfo.totalPayable = 0.0;
     }
