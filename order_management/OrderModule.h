@@ -33,7 +33,6 @@ struct Order {
         totalAmount = 0.0;
     }
 
-    // Copy constructor
     Order(const Order& other) {
         orderId = other.orderId;
         customerName = other.customerName;
@@ -48,7 +47,6 @@ struct Order {
         }
     }
 
-    // Assignment operator
     Order& operator=(const Order& other) {
         if (this == &other) return *this;
         delete[] items;
