@@ -17,7 +17,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Find Qt 6 Widgets using standard CMake package discovery
-find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Pdf)
 
 # Standard cross-platform discovery for OpenCV (optional – app works with clear fallback if absent)
 if(APPLE)
@@ -104,19 +104,17 @@ set(POS_SOURCES
     pos/CameraScannerService.h
     pos/CameraScannerService.cpp
 
-    # Screens
-    pos/DashboardView.h
-    pos/DashboardView.cpp
-    pos/CashierOrderView.h
-    pos/CashierOrderView.cpp
-    pos/ProductDescriptionView.h
-    pos/ProductDescriptionView.cpp
-    pos/BillPreviewView.h
-    pos/BillPreviewView.cpp
-    pos/PaymentView.h
-    pos/PaymentView.cpp
-    pos/ManagerView.h
-    pos/ManagerView.cpp
+    # Billing package sources (new)
+    billing/BillIdGenerator.h
+    billing/BillIdGenerator.cpp
+    billing/Bill.h
+    billing/Bill.cpp
+    billing/DiscountEngine.h
+    billing/DiscountEngine.cpp
+    billing/PdfGenerator.h
+    billing/PdfGenerator.cpp
+    billing/ReportEngine.h
+    billing/ReportEngine.cpp
 
     # Order Management Module (Jav)
     order_management/OrderModule.h

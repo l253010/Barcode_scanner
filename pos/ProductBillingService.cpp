@@ -5,6 +5,7 @@
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
+#include <filesystem>
 
 #if defined(QT_CORE_LIB) || defined(QT_WIDGETS_LIB)
 #include <QCoreApplication>
