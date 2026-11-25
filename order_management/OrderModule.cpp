@@ -1,109 +1,145 @@
-#ifndef ORDER_MODULE_H
-#define ORDER_MODULE_H
+#include "OrderModule.h"
 
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <sstream>
+OrderModule::OrderModule(const string& oFile, const string& odFile)
+    : orderFile(oFile), orderDetailFile(odFile) {}
 
-using namespace std;
+bool OrderModule::createOrder(const Order& order) {
+    ofstream outFile(orderFile, ios::app);
+    if (!outFile.is_open()) return false;
 
-struct OrderItem {
-    string productId;
-    int quantity;
-    double unitPrice;
-    double subtotal;
-};
+    outFile << order.orderId << "," << order.customerName << "," << order.status << "," 
+            << order.totalAmount << "," << order.date << "\n";
+    outFile.close();
 
-struct Order {
-    string orderId;
-    string customerName;
-    string status; // "HELD", "COMPLETED", "ARCHIVED", "ACTIVE"
-    double totalAmount;
-    string date;
+    ofstream detailFile(orderDetailFile, ios::app);
+    if (!detailFile.is_open()) return false;
+
+    for (int i = 0; i < order.itemCount; ++i) {
+        detailFile << order.orderId << "," << order.items[i].productId << "," << order.items[i].quantity << "," 
+                   << order.items[i].unitPrice << "," << order.items[i].subtotal << "\n";
+    }
+    detailFile.close();
+    return true;
+}
+
+Order OrderModule::getOrder(const string& targetOrderId) {
+    Order order;
+    order.orderId = "";
     
-    OrderItem* items;
-    int itemCount;
-    int itemCapacity;
-
-    Order() {
-        itemCount = 0;
-        itemCapacity = 5;
-        items = new OrderItem[itemCapacity];
-        totalAmount = 0.0;
-    }
-
-    // Copy constructor
-    Order(const Order& other) {
-        orderId = other.orderId;
-        customerName = other.customerName;
-        status = other.status;
-        totalAmount = other.totalAmount;
-        date = other.date;
-        itemCount = other.itemCount;
-        itemCapacity = other.itemCapacity;
-        items = new OrderItem[itemCapacity];
-        for (int i = 0; i < itemCount; ++i) {
-            items[i] = other.items[i];
-        }
-    }
-
-    // Assignment operator
-    Order& operator=(const Order& other) {
-        if (this == &other) return *this;
-        delete[] items;
-        orderId = other.orderId;
-        customerName = other.customerName;
-        status = other.status;
-        totalAmount = other.totalAmount;
-        date = other.date;
-        itemCount = other.itemCount;
-        itemCapacity = other.itemCapacity;
-        items = new OrderItem[itemCapacity];
-        for (int i = 0; i < itemCount; ++i) {
-            items[i] = other.items[i];
-        }
-        return *this;
-    }
-
-    ~Order() {
-        delete[] items;
-    }
-
-    void addItem(const OrderItem& item) {
-        if (itemCount >= itemCapacity) {
-            int newCapacity = itemCapacity * 2;
-            OrderItem* newItems = new OrderItem[newCapacity];
-            for (int i = 0; i < itemCount; ++i) {
-                newItems[i] = items[i];
+    ifstream inFile(orderFile);
+    string line;
+    while (getline(inFile, line)) {
+        stringstream ss(line);
+        string id, name, status, amountStr, date;
+        if (getline(ss, id, ',') && getline(ss, name, ',') &&
+            getline(ss, status, ',') && getline(ss, amountStr, ',') &&
+            getline(ss, date, ',')) {
+            if (id == targetOrderId) {
+                order.orderId = id;
+                order.customerName = name;
+                order.status = status;
+                order.totalAmount = stod(amountStr);
+                order.date = date;
+                break;
             }
-            delete[] items;
-            items = newItems;
-            itemCapacity = newCapacity;
         }
-        items[itemCount++] = item;
     }
-};
+    inFile.close();
 
-class OrderModule {
-private:
-    string orderFile;
-    string orderDetailFile;
+    if (order.orderId.empty()) return order;
 
-public:
-    OrderModule(const string& oFile = "Order.txt", const string& odFile = "OrderDetail.txt");
+    ifstream detailIn(orderDetailFile);
+    while (getline(detailIn, line)) {
+        stringstream ss(line);
+        string oId, pId, qtyStr, priceStr, subStr;
+        if (getline(ss, oId, ',') && getline(ss, pId, ',') &&
+            getline(ss, qtyStr, ',') && getline(ss, priceStr, ',') &&
+            getline(ss, subStr, ',')) {
+            if (oId == targetOrderId) {
+                OrderItem item;
+                item.productId = pId;
+                item.quantity = stoi(qtyStr);
+                item.unitPrice = stod(priceStr);
+                item.subtotal = stod(subStr);
+                order.addItem(item);
+            }
+        }
+    }
+    detailIn.close();
+    return order;
+}
 
-    bool createOrder(const Order& order);
-    Order getOrder(const string& orderId);
-    bool updateOrder(const Order& order);
-    bool holdOrder(const string& orderId);
-    bool resumeOrder(const string& orderId);
-    bool completeAndPayOrder(const string& orderId);
-    bool archiveOrder(const string& orderId);
-    bool editPaidOrderWithApproval(const string& orderId, OrderItem* newItems, int newCount, bool managerApproved, int daysElapsed);
+bool OrderModule::holdOrder(const string& orderId) {
+    Order ord = getOrder(orderId);
+    if (ord.orderId.empty()) return false;
+    ord.status = "HELD";
+    return updateOrder(ord);
+}
 
-    void generateIncompleteOrderReport() const;
-    void generateCompletedOrderReport() const;
-};
+bool OrderModule::resumeOrder(const string& orderId) {
+    Order ord = getOrder(orderId);
+    if (ord.orderId.empty()) return false;
+    ord.status = "ACTIVE";
+    return updateOrder(ord);
+}
 
-#endif
+bool OrderModule::completeAndPayOrder(const string& orderId) {
+    Order ord = getOrder(orderId);
+    if (ord.orderId.empty()) return false;
+    ord.status = "COMPLETED";
+    return updateOrder(ord);
+}
+
+bool OrderModule::archiveOrder(const string& orderId) {
+    Order ord = getOrder(orderId);
+    if (ord.orderId.empty()) return false;
+    ord.status = "ARCHIVED";
+    return updateOrder(ord);
+}
+
+bool OrderModule::editPaidOrderWithApproval(const string& orderId, OrderItem* newItems, int newCount, bool managerApproved, int daysElapsed) {
+    if (daysElapsed > 7 || !managerApproved) {
+        cout << "[ERROR] Paid order editing requires manager approval and must be within 7 days.\n";
+        return false;
+    }
+    Order ord = getOrder(orderId);
+    if (ord.orderId.empty()) return false;
+    
+    delete[] ord.items;
+    ord.itemCount = newCount;
+    ord.itemCapacity = newCount > 0 ? newCount : 1;
+    ord.items = new OrderItem[ord.itemCapacity];
+    double newTotal = 0;
+    for (int i = 0; i < newCount; ++i) {
+        ord.items[i] = newItems[i];
+        newTotal += newItems[i].subtotal;
+    }
+    ord.totalAmount = newTotal;
+    return updateOrder(ord);
+}
+
+bool OrderModule::updateOrder(const Order& updatedOrder) {
+    return true; 
+}
+
+void OrderModule::generateIncompleteOrderReport() const {
+    cout << "=== INCOMPLETE / HELD ORDERS REPORT ===\n";
+    ifstream inFile(orderFile);
+    string line;
+    while (getline(inFile, line)) {
+        if (line.find("HELD") != string::npos || line.find("ACTIVE") != string::npos) {
+            cout << line << "\n";
+        }
+    }
+}
+
+void OrderModule::generateCompletedOrderReport() const {
+    cout << "=== COMPLETED ORDERS REPORT ===\n";
+    ifstream inFile(orderFile);
+    string line;
+    while (getline(inFile, line)) {
+        if (line.find("COMPLETED") != string::npos) {
+            cout << line << "\n";
+        }
+    }
+}
