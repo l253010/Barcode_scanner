@@ -39,7 +39,7 @@ class ProductDescriptionView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ProductDescriptionView(IProductService* productService, QWidget* parent = nullptr);
+    explicit ProductDescriptionView(IProductService* productService, ICameraScannerService* cameraService = nullptr, QWidget* parent = nullptr);
     void displayProduct(const std::string& barcode);
 
 signals:
@@ -48,11 +48,14 @@ signals:
 
 private slots:
     void onLookupClicked();
+    void onScanCameraClicked();
+    void onUploadBarcodeImageClicked();
     void onProductDropdownChanged(int index);
     void onAddToCartClicked();
 
 private:
-    IProductService*      m_productService;
+    IProductService*       m_productService;
+    ICameraScannerService* m_cameraService{nullptr};
     ProductInfo           m_currentProduct;
 
     // UI Widgets

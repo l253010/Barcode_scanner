@@ -9,6 +9,7 @@
 #include "POSInterfaces.h"
 #include "MockDataService.h"
 #include "ProductBillingService.h"
+#include "CameraScannerService.h"
 
 // Forward screen declarations
 class DashboardView;
@@ -36,6 +37,7 @@ public slots:
 private:
     std::unique_ptr<MockDataService>       m_mockService;
     std::unique_ptr<ProductBillingService> m_productBillingService;
+    std::unique_ptr<CameraScannerService>  m_cameraService;
     BillInfo                               m_activeBill;
 
     // UI Structure

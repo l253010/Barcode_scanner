@@ -1,0 +1,10 @@
+PRD-101 100001 MILK-1L Organic Whole Milk 1L count 3.49 0.1745 0.00 50 barcodes/barcode_100001.png #
+PRD-102 100002 BREAD-W Whole Grain Wheat Bread count 2.89 0.00 0.00 40 barcodes/barcode_100002.png #
+PRD-103 100003 EGGS-12 Farm Fresh Large Eggs 12pk count 4.25 0.2125 0.00 30 barcodes/barcode_100003.png #
+PRD-104 123456 COF-250 Arabica Dark Roast Coffee 250g weight 7.99 0.6392 0.00 25 barcodes/barcode_123456.png #
+PRD-105 200001 WAT-500 Natural Spring Water 500ml count 1.20 0.00 0.00 100 barcodes/barcode_200001.png #
+PRD-106 200002 PB-500G Crunchy Peanut Butter 500g count 4.50 0.225 0.00 20 barcodes/barcode_200002.png #
+PRD-107 300001 CHOC-100 Dark Chocolate Bar 100g count 2.50 0.20 0.00 60 barcodes/barcode_300001.png #
+PRD-108 300002 OIL-750 Extra Virgin Olive Oil 750ml count 11.99 0.5995 0.00 15 barcodes/barcode_300002.png #
+PRD-109 400001 RICE-2K Basmati Long Grain Rice 2kg weight 8.75 0.00 0.00 35 barcodes/barcode_400001.png #
+PRD-110 500001 LEMON-33 Sparkling Lemonade 330ml count 1.75 0.14 0.00 8 barcodes/barcode_500001.png #

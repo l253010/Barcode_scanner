@@ -38,6 +38,9 @@ public:
     ProductBilling::ProductManager& getProductManager() { return m_productManager; }
     const ProductBilling::ProductManager& getProductManager() const { return m_productManager; }
 
+    // Portable cross-platform path discovery for Product.txt
+    static std::string resolveProductFilePath(const std::string& explicitPath = "");
+
     // Helper conversions between POS and ProductBilling structures
     static ProductInfo toProductInfo(const ProductBilling::Product& product);
     static ProductBilling::Product toProduct(const ProductInfo& info);

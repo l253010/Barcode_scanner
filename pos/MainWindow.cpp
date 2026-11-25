@@ -5,6 +5,8 @@
 #include "BillPreviewView.h"
 #include "PaymentView.h"
 #include "ManagerView.h"
+#include "CameraScannerService.h"
+#include "OrderModule.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -15,6 +17,7 @@
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_mockService = std::make_unique<MockDataService>();
     m_productBillingService = std::make_unique<ProductBillingService>();
+    m_cameraService = std::make_unique<CameraScannerService>();
     setupUi();
     navigateToScreen(0); // Start on Dashboard
 }
@@ -205,13 +208,13 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_dashboardView);
 
     // Screen 1: Cashier / New Order
-    m_cashierView = new CashierOrderView(m_productBillingService.get(), m_productBillingService.get(), m_mockService.get(), this);
+    m_cashierView = new CashierOrderView(m_productBillingService.get(), m_productBillingService.get(), m_cameraService.get(), this);
     connect(m_cashierView, &CashierOrderView::billGenerated, this, &MainWindow::onBillGenerated);
     connect(m_cashierView, &CashierOrderView::inspectProductRequested, this, &MainWindow::onInspectProductRequested);
     m_stack->addWidget(m_cashierView);
 
     // Screen 2: Product Description
-    m_descView = new ProductDescriptionView(m_productBillingService.get(), this);
+    m_descView = new ProductDescriptionView(m_productBillingService.get(), m_cameraService.get(), this);
     connect(m_descView, &ProductDescriptionView::addProductToCart, this, &MainWindow::onAddProductToCartRequested);
     connect(m_descView, &ProductDescriptionView::backToCashierRequested, [this]() { navigateToScreen(1); });
     m_stack->addWidget(m_descView);
@@ -223,7 +226,7 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_billView);
 
     // Screen 4: Payment
-    m_paymentView = new PaymentView(m_mockService.get(), this);
+    m_paymentView = new PaymentView(m_mockService.get(), m_productBillingService.get(), this);
     connect(m_paymentView, &PaymentView::paymentCompleted, this, &MainWindow::onPaymentCompleted);
     connect(m_paymentView, &PaymentView::backToBillRequested, [this](const BillInfo& b) {
         m_activeBill = b;
@@ -293,20 +296,27 @@ void MainWindow::onProceedToPaymentRequested(const BillInfo& bill) {
 
 void MainWindow::onPaymentCompleted(const BillInfo& updatedBill) {
     m_activeBill = updatedBill;
-    std::string commitError;
-    if (!m_productBillingService->commitOrderStock(updatedBill, &commitError)) {
-        QMessageBox::warning(
-            this,
-            "Inventory Persistence Notice",
-            QString("Order completed, but inventory stock deduction could not be saved to disk:\n%1")
-                .arg(QString::fromStdString(commitError))
-        );
-    }
+
+    // Refresh manager catalog with updated stock levels
     m_managerView->refreshCatalog();
-    m_mockService->saveBill(updatedBill);
+
+    // Persist finalized transaction into Jav's OrderModule (Order.txt, OrderDetail.txt, Bill.txt)
+    std::string method = updatedBill.paymentMode;
+    if (method != "Cash" && method != "Card" && method != "Online") {
+        method = "Cash";
+    }
+    int ordId = createOrder(updatedBill.customerName, method);
+    if (ordId > 0) {
+        for (const auto& item : updatedBill.items) {
+            std::string prodId = item.product.acronym.empty() ? ("PRD-" + std::to_string(item.product.id)) : item.product.acronym;
+            addOrderDetail(ordId, prodId, item.product.barcode, item.quantity);
+        }
+        createBill(ordId, updatedBill.totalWithoutTax, updatedBill.totalDiscount, updatedBill.amountTendered, method);
+    }
+
     m_billView->loadBill(updatedBill);
     m_cashierView->resetOrder(); // Clear cart for next customer
-    navigateToScreen(3); // Return to Bill Preview showing PAID status
+    navigateToScreen(3); // Navigate to Bill Preview showing the finalized PAID receipt
 }
 
 void MainWindow::onAddProductToCartRequested(const ProductInfo& product) {

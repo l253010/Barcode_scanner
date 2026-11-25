@@ -10,11 +10,15 @@
 #include <QFrame>
 #include "POSInterfaces.h"
 
+class ProductBillingService;
+
 class PaymentView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit PaymentView(IOrderStorageService* storageService, QWidget* parent = nullptr);
+    explicit PaymentView(IOrderStorageService* storageService,
+                         ProductBillingService* billingService = nullptr,
+                         QWidget* parent = nullptr);
     void loadBill(const BillInfo& bill);
     const BillInfo& getCurrentBill() const { return m_currentBill; }
 
@@ -30,8 +34,9 @@ private slots:
     void onConfirmPaymentClicked();
 
 private:
-    IOrderStorageService* m_storageService;
-    BillInfo              m_currentBill;
+    IOrderStorageService*  m_storageService;
+    ProductBillingService* m_billingService{nullptr};
+    BillInfo               m_currentBill;
 
     // Containers
     QFrame*         m_emptyStateFrame{nullptr};
